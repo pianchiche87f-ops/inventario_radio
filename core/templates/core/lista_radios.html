@@ -1,0 +1,197 @@
+
+{% extends "core/base.html" %}
+
+{% block title %}Inventario de radios | Sistema de gestión{% endblock %}
+
+{% block page_heading %}Inventario de activos{% endblock %}
+
+
+{% block page_description %}
+    <p class="mb-3">
+        Consulta los equipos registrados y sus códigos QR.
+    </p>
+
+    <form method="get" action="" class="mb-3">
+        <div class="row g-2">
+            <div class="col-12 col-md-6">
+                <input
+                    type="search"
+                    name="buscar"
+                    id="buscar-radio"
+                    class="form-control form-control-lg"
+                    placeholder="Buscar por código, marca o número de serie..."
+                    value="{{ request.GET.buscar|default:'' }}"
+                    aria-label="Buscar radio por código, marca o número de serie"
+                >
+            </div>
+
+            <div class="col-12 col-md-auto">
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <i class="bi bi-search"></i> Buscar
+                </button>
+
+                <a href="{% url 'lista_radios' %}"
+                   class="btn btn-outline-secondary btn-lg">
+                    Limpiar
+                </a>
+            </div>
+        </div>
+    </form>
+{% endblock %}
+
+
+{% block page_actions %}
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+        <span class="badge text-bg-primary fs-6">
+            Total de radios: {{ total_radios }}
+        </span>
+
+        <a href="{% url 'registrar_radio' %}" class="btn btn-primary">
+            + Registrar radio
+        </a>
+    </div>
+{% endblock %}
+
+{% block content %}
+
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white py-3">
+        <h2 class="h5 fw-semibold mb-0">Equipos registrados</h2>
+    </div>
+
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped align-middle mb-0">
+                <thead class="table-primary">
+                    <tr>
+                        <th scope="col">Código QR</th>
+                        <th scope="col">Código interno</th>
+                        <th scope="col">Número de serie</th>
+                        <th scope="col">Marca</th>
+                        <th scope="col">Modelo</th>
+                        <th scope="col">Estado</th>
+                        <th scope="col">Fecha de registro</th>
+                        <th scope="col">Acciones</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for radio in radios %}
+                    <tr id="radio-{{ radio.identificador_qr }}">
+                        <td class="text-center">
+                            {% if radio.imagen_qr %}
+                                <a href="{{ radio.imagen_qr.url }}"
+                                   target="_blank"
+                                   rel="noopener noreferrer"
+                                   title="Abrir imagen QR">
+                                    <img
+                                        src="{{ radio.imagen_qr.url }}"
+                                        alt="Código QR del radio {{ radio.codigo_interno }}"
+                                        class="img-thumbnail"
+                                        width="100"
+                                        height="100"
+                                        loading="lazy"
+                                    >
+                                </a>
+
+                                <div class="mt-2">
+                                    <a
+                                        href="{{ radio.imagen_qr.url }}"
+                                        download="QR_{{ radio.codigo_interno }}.png"
+                                        class="btn btn-sm btn-outline-primary"
+                                    >
+                                        Descargar QR
+                                    </a>
+                                </div>
+                            {% else %}
+                                <span class="badge text-bg-warning">
+                                    QR no disponible
+                                </span>
+                            {% endif %}
+                        </td>
+
+                        <td class="fw-semibold">{{ radio.codigo_interno }}</td>
+                        <td>{{ radio.numero_serie }}</td>
+                        <td>{{ radio.marca }}</td>
+                        <td>{{ radio.modelo }}</td>
+
+                        <td>
+                            {% if radio.estado == "disponible" %}
+                                <span class="badge text-bg-success">
+                                    {{ radio.get_estado_display }}
+                                </span>
+                            {% elif radio.estado == "asignado" %}
+                                <span class="badge text-bg-primary">
+                                    {{ radio.get_estado_display }}
+                                </span>
+                            {% elif radio.estado == "mantenimiento" %}
+                                <span class="badge text-bg-warning">
+                                    {{ radio.get_estado_display }}
+                                </span>
+                            {% else %}
+                                <span class="badge text-bg-secondary">
+                                    {{ radio.get_estado_display }}
+                                </span>
+                            {% endif %}
+                        </td>
+
+                        <td class="text-nowrap">
+                            {{ radio.fecha_registro|date:"d/m/Y H:i" }}
+                        </td>
+
+                        <td>
+                            <a
+                                href="{% url 'detalle_radio' radio.identificador_qr %}"
+                                class="btn btn-sm btn-outline-primary text-nowrap"
+                            >
+                                Ver ficha
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center py-5 text-secondary">
+                            <div class="fs-1 mb-2">📻</div>
+
+                            <p class="fw-semibold mb-1">
+                                No hay radios registrados
+                            </p>
+
+                            <p class="small mb-3">
+                                Registra un equipo para que aparezca
+                                en este inventario.
+                            </p>
+
+                            <a href="{% url 'registrar_radio' %}"
+                               class="btn btn-primary">
+                                Registrar primer radio
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% if request.GET.buscar and radios %}
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const primeraFila = document.querySelector(
+            "tbody tr[id^='radio-']"
+        );
+
+        if (primeraFila) {
+            primeraFila.scrollIntoView({
+                behavior: "smooth",
+                block: "center"
+            });
+        }
+    });
+</script>
+{% endif %}
+
+{% endblock %}
+
+

@@ -1,0 +1,355 @@
+{% extends "core/base.html" %}
+
+{% block title %}Equipos de Comunicación{% endblock %}
+
+{% block page_heading %}Panel de control{% endblock %}
+
+{% block page_description %}
+    Bienvenido al sistema de gestión de inventario de equipos de comunicación.
+{% endblock %}
+
+{% block page_actions %}
+
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{% url 'generador_qr' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-qr-code me-2"></i>
+                Identificar QR
+            </a>
+
+            <a href="{% url 'registrar_radio' %}" class="btn btn-primary">
+                <i class="bi bi-plus-lg me-2"></i>
+                Registrar equipo
+            </a>
+        </div>
+    {% endblock %}
+
+    {% block content %}
+   
+        <!-- Indicadores del inventario -->
+        <section class="row g-3" aria-label="Indicadores del inventario">
+
+            <!-- Total de activos -->
+            <div class="col-12 col-sm-6 col-xl-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <h2 class="h6 text-secondary">Total de activos</h2>
+                            <i class="bi bi-broadcast-pin text-secondary fs-3"></i>
+                        </div>
+
+                        <p class="display-6 fw-bold mb-1">
+                            {{ total_radios }}
+                        </p>
+                        <small class="text-secondary">
+                            Equipos registrados
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Disponibles -->
+            <div class="col-12 col-sm-6 col-xl-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <h2 class="h6 text-secondary">Equipos disponibles</h2>
+                            <i class="bi bi-check-circle-fill text-success fs-3"></i>
+                        </div>
+
+                        <p class="display-6 fw-bold text-success mb-1">
+                            {{ radios_disponibles }}
+                        </p>
+                        <small class="text-secondary">
+                            Listos para asignación
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Asignados -->
+            <div class="col-12 col-sm-6 col-xl-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <h2 class="h6 text-secondary">Asignados</h2>
+                            <i class="bi bi-person-check-fill text-primary fs-3"></i>
+                        </div>
+
+                        <p class="display-6 fw-bold text-primary mb-1">
+                            {{ radios_asignados }}
+                        </p>
+                        <small class="text-secondary">
+                            Equipos bajo responsabilidad
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- En mantenimiento -->
+            <div class="col-12 col-sm-6 col-xl-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <h2 class="h6 text-secondary">En mantenimiento</h2>
+                            <i class="bi bi-gear text-warning fs-3"></i>
+                        </div>
+
+                        <p class="display-6 fw-bold text-warning mb-1">
+                            {{ radios_mantenimiento }}
+                        </p>
+                        <small class="text-secondary">
+                            Equipos en revisión o reparación
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+            
+        <!-- Paneles de estado y alertas -->
+        <section class="row g-3 mt-1" aria-label="Estado del inventario y alertas">
+
+            <!-- Estado del inventario -->
+            <div class="col-12 col-xl-6">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h2 class="h6 fw-bold mb-0">Estado del inventario</h2>
+                            <small class="text-secondary">{{ total_radios }} equipos</small>
+                        </div>
+
+                        <div class="row align-items-center g-3">
+                            <div class="col-12 col-sm-5">
+                                <div class="position-relative mx-auto"
+                                    style="width: 150px; height: 150px;">
+                                    <svg viewBox="0 0 42 42"
+                                        class="w-100 h-100"
+                                        role="img"
+                                        aria-label="Distribución de radios por estado">
+
+                                        <circle
+                                            cx="21"
+                                            cy="21"
+                                            r="15.915"
+                                            fill="none"
+                                            stroke="#e9ecef"
+                                            stroke-width="7"
+                                        />
+
+                                        {% if total_radios %}
+                                            {% with porcentaje_disponibles=radios_disponibles|floatformat:0 %}
+                                                <circle
+                                                    cx="21" cy="21" r="15.915"
+                                                    fill="none"
+                                                    stroke="#18a999"
+                                                    stroke-width="7"
+                                                    pathLength="100"
+                                                    stroke-dasharray="{% widthratio radios_disponibles total_radios 100 %} 100"
+                                                    stroke-dashoffset="0"
+                                                    transform="rotate(-90 21 21)"
+                                                />
+                                                <circle
+                                                    cx="21" cy="21" r="15.915"
+                                                    fill="none"
+                                                    stroke="#f0ad4e"
+                                                    stroke-width="7"
+                                                    pathLength="100"
+                                                    stroke-dasharray="{% widthratio radios_asignados total_radios 100 %} 100"
+                                                    stroke-dashoffset="-{% widthratio radios_disponibles total_radios 100 %}"
+                                                    transform="rotate(-90 21 21)"
+                                                />
+                                                <circle
+                                                    cx="21" cy="21" r="15.915"
+                                                    fill="none"
+                                                    stroke="#e76f6f"
+                                                    stroke-width="7"
+                                                    pathLength="100"
+                                                    stroke-dasharray="{% widthratio radios_mantenimiento total_radios 100 %} 100"
+                                                    stroke-dashoffset="-{% widthratio radios_disponibles|add:radios_asignados total_radios 100 %}"
+                                                    transform="rotate(-90 21 21)"
+                                                />
+                                                
+                                                <circle
+                                                    cx="21" cy="21" r="15.915"
+                                                    fill="none"
+                                                    stroke="#6f42c1"
+                                                    stroke-width="7"
+                                                    pathLength="100"
+                                                    stroke-dasharray="{% widthratio radios_en_terceros total_radios 100 %} 100"
+                                                    stroke-dashoffset="-{% widthratio radios_disponibles|add:radios_asignados|add:radios_mantenimiento|add:radios_en_terceros total_radios 100 %}"
+                                                    transform="rotate(-90 21 21)"
+                                                />
+
+                                            {% endwith %}
+                                        {% endif %}
+                                        </svg>
+
+                                    <div class="position-absolute top-50 start-50 translate-middle text-center">
+                                        <div class="h3 fw-bold mb-0">{{ total_radios }}</div>
+                                        <small class="text-secondary">EQUIPOS</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12 col-sm-7">
+                                <div class="d-flex flex-column gap-3">
+                                    {% for estado in estado_inventario %}
+                                        <div class="d-flex justify-content-between align-items-center gap-2">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="rounded-1"
+                                                    style="display:inline-block;width:9px;height:9px;background-color:{{ estado.color }};"></span>
+                                                <span class="small">{{ estado.nombre }}</span>
+                                            </div>
+                                            <strong class="small">{{ estado.cantidad }}</strong>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Necesitan atención -->
+            <div class="col-12 col-xl-6">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h2 class="h6 fw-bold mb-0">Necesitan atención</h2>
+                            <span class="text-warning" aria-hidden="true">⚠</span>
+                        </div>
+
+                        <!-- Mantenimientos -->
+                        <div class="d-flex align-items-center gap-3 py-3 border-bottom">
+                            <div class="rounded p-2 bg-warning-subtle text-warning">
+                                <span aria-hidden="true">◷</span>
+                            </div>
+
+                            <div class="flex-grow-1">
+                                <div class="small fw-bold">Equipos en mantenimiento</div>
+
+                                <small class="text-secondary">
+                                    {% if radios_mantenimiento %}
+                                        Selecciona un equipo para consultar su ficha.
+                                    {% else %}
+                                        No hay equipos en mantenimiento.
+                                    {% endif %}
+                                </small>
+
+                                {% if equipos_mantenimiento %}
+                                    <div class="mt-2">
+                                        {% for radio in equipos_mantenimiento %}
+                                            <a
+                                                href="{% url 'detalle_radio' radio.identificador_qr %}"
+                                                class="d-block small text-decoration-none mb-1"
+                                            >
+                                                {{ radio.codigo_interno }} — {{ radio.marca }} {{ radio.modelo }}
+                                            </a>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <strong>{{ radios_mantenimiento }}</strong>
+                        </div>
+
+                        
+                        <!-- Constataciones -->
+                        <div class="d-flex align-items-start gap-3 py-3 border-bottom">
+                            <div class="rounded p-2 bg-primary-subtle text-primary">
+                                <span aria-hidden="true">▤</span>
+                            </div>
+
+                            <div class="flex-grow-1">
+                                <div class="small fw-bold">Constataciones físicas</div>
+
+                                {% if ultimas_constataciones %}
+                                    <small class="text-secondary">
+                                        Últimas constataciones registradas:
+                                    </small>
+
+                                    <div class="mt-2">
+                                        {% for movimiento in ultimas_constataciones %}
+                                            <div class="mb-2">
+                                                <a
+                                                    href="{% url 'detalle_radio' movimiento.radio.identificador_qr %}"
+                                                    class="d-block small text-decoration-none fw-semibold"
+                                                >
+                                                    {{ movimiento.radio.codigo_interno }}
+                                                    — {{ movimiento.radio.marca }} {{ movimiento.radio.modelo }}
+                                                </a>
+
+                                                <small class="text-secondary">
+                                                    {{ movimiento.fecha|date:"d/m/Y H:i" }}
+                                                </small>
+
+                                                {% if movimiento.descripcion %}
+                                                    <div class="small text-secondary">
+                                                        {{ movimiento.descripcion }}
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <small class="text-secondary">
+                                        No hay constataciones físicas registradas.
+                                    </small>
+                                {% endif %}
+                            </div>
+
+                            <span class="badge text-bg-secondary">
+                                {{ ultimas_constataciones|length }}
+                            </span>
+                        </div>
+
+                        <!-- Retornos -->
+                        <div class="d-flex align-items-start gap-3 py-3">
+                            <div class="rounded p-2 bg-info-subtle text-info">
+                                <span aria-hidden="true">↩</span>
+                            </div>
+
+                            <div class="flex-grow-1">
+                                <div class="small fw-bold">Retornos de equipos</div>
+
+                                {% if equipos_retorno_vencido %}
+                                    <small class="text-danger">
+                                        Hay equipos con devolución vencida:
+                                    </small>
+
+                                    <div class="mt-2">
+                                        {% for radio in equipos_retorno_vencido %}
+                                            <div class="mb-2">
+                                                <a
+                                                    href="{% url 'detalle_radio' radio.identificador_qr %}"
+                                                    class="d-block small text-decoration-none fw-semibold"
+                                                >
+                                                    {{ radio.codigo_interno }} — {{ radio.marca }} {{ radio.modelo }}
+                                                </a>
+
+                                                <small class="text-secondary">
+                                                    Fecha límite:
+                                                    {{ radio.fecha_devolucion_prevista|date:"d/m/Y" }}
+                                                </small>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <small class="text-secondary">
+                                        No hay retornos vencidos registrados.
+                                    </small>
+                                {% endif %}
+                            </div>
+
+                            <span class="badge {% if equipos_retorno_vencido %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
+                                {{ equipos_retorno_vencido|length }}
+                            </span>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+{% endblock %}

@@ -1,0 +1,236 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Registrar radio</title>
+
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+    >
+</head>
+
+<body class="bg-body-tertiary">
+
+    <div class="container-fluid">
+        <div class="row min-vh-100">
+
+            <!-- Menú lateral -->
+            <aside class="col-12 col-md-3 col-lg-2 bg-dark text-white p-3">
+
+                <div class="border-bottom border-secondary pb-3 mb-4 text-center">
+
+                    <img src="{% static 'imagen/ima1.png' %}"
+                        alt="Radio Harris HF"
+                        class="img-fluid mb-3"
+                        style="width: 150px; height: 115px; object-fit: contain;">
+
+                    <h5 class="fw-bold">
+                        Inventario de Equipos de Comunicación
+                    </h5>
+
+                    <small class="text-white-50 text-start d-block">
+                        Sistema de gestión
+                    </small>
+
+                </div>
+
+                <nav class="nav flex-column gap-2">
+
+                    <a href="{% url 'dashboard' %}"
+                       class="nav-link text-white">
+                        ▦ Dashboard
+                    </a>
+
+                    <a href="{% url 'lista_radios' %}"
+                       class="nav-link active bg-primary text-white rounded">
+                        ▣ Inventarios
+                    </a>
+
+                    <form method="post" action="{% url 'logout' %}">
+                        {% csrf_token %}
+                        <button type="submit"
+                                class="btn btn-outline-light w-100 text-start">
+                            ↪ Cerrar sesión
+                        </button>
+                    </form>
+
+                </nav>
+            </aside>
+
+            <!-- Formulario -->
+            <main class="col-12 col-md-9 col-lg-10 p-3 p-lg-4">
+
+                <div class="d-flex flex-column flex-md-row
+                            justify-content-between align-items-md-center
+                            gap-3 mb-4">
+
+                    <div>
+                        <h1 class="h2 fw-bold">Registrar equipo</h1>
+                        <p class="text-secondary mb-0">
+                            Ingresa los datos del equipo para registrarlo en el inventario.
+                        </p>
+                    </div>
+
+                    <a href="{% url 'lista_radios' %}"
+                       class="btn btn-outline-secondary">
+                        Volver al inventario
+                    </a>
+                </div>
+
+                <!-- Mensajes -->
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-info alert-dismissible fade show"
+                             role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close"
+                                    data-bs-dismiss="alert"
+                                    aria-label="Cerrar"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                <!-- Tarjeta del formulario -->
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white py-3">
+                        <h2 class="h5 fw-bold mb-0">Información del equipo</h2>
+                    </div>
+
+                    <div class="card-body p-4">
+
+                        <form method="post">
+                            {% csrf_token %}
+
+                            {% if formulario.non_field_errors %}
+                                <div class="alert alert-danger">
+                                    {{ formulario.non_field_errors }}
+                                </div>
+                            {% endif %}
+
+                            <div class="row g-3">
+
+                                <div class="col-12 col-md-6">
+                                    <label for="{{ formulario.codigo_interno.id_for_label }}"
+                                           class="form-label fw-semibold">
+                                        Código interno
+                                    </label>
+                                    {{ formulario.codigo_interno }}
+                                    {% for error in formulario.codigo_interno.errors %}
+                                        <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+
+                                <div class="col-12 col-md-6">
+                                    <label for="{{ formulario.numero_serie.id_for_label }}"
+                                           class="form-label fw-semibold">
+                                        Número de serie
+                                    </label>
+                                    {{ formulario.numero_serie }}
+                                    {% for error in formulario.numero_serie.errors %}
+                                        <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+
+                                <div class="col-12 col-md-6">
+                                    <label for="{{ formulario.marca.id_for_label }}"
+                                           class="form-label fw-semibold">
+                                        Marca
+                                    </label>
+                                    {{ formulario.marca }}
+                                    {% for error in formulario.marca.errors %}
+                                        <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+
+                                <div class="col-12 col-md-6">
+                                    <label for="{{ formulario.modelo.id_for_label }}"
+                                           class="form-label fw-semibold">
+                                        Modelo
+                                    </label>
+                                    {{ formulario.modelo }}
+                                    {% for error in formulario.modelo.errors %}
+                                        <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+
+                                <div class="col-12 col-md-6">
+                                    <label for="{{ formulario.estado.id_for_label }}"
+                                           class="form-label fw-semibold">
+                                        Estado del equipo
+                                    </label>
+                                    {{ formulario.estado }}
+                                    {% for error in formulario.estado.errors %}
+                                        <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+
+                                <div class="col-12 col-md-6">
+                                    <label for="{{ formulario.ubicacion.id_for_label }}"
+                                           class="form-label fw-semibold">
+                                        Ubicación
+                                    </label>
+                                    {{ formulario.ubicacion }}
+                                    {% for error in formulario.ubicacion.errors %}
+                                        <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+
+                                <div class="col-12">
+                                    <label for="{{ formulario.responsable.id_for_label }}"
+                                           class="form-label fw-semibold">
+                                        Responsable asignado
+                                    </label>
+                                    {{ formulario.responsable }}
+                                    {% for error in formulario.responsable.errors %}
+                                        <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+
+                                <div class="col-12">
+                                    <label for="{{ formulario.observaciones.id_for_label }}"
+                                           class="form-label fw-semibold">
+                                        Observaciones
+                                    </label>
+                                    {{ formulario.observaciones }}
+                                    {% for error in formulario.observaciones.errors %}
+                                        <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+
+                            </div>
+
+                            <hr class="my-4">
+
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="submit" class="btn btn-primary">
+                                    Guardar radio
+                                </button>
+
+                                <a href="{% url 'lista_radios' %}"
+                                   class="btn btn-outline-secondary">
+                                    Cancelar
+                                </a>
+                            </div>
+
+                        </form>
+
+                    </div>
+                </div>
+
+                <footer class="text-center text-secondary small mt-4">
+                    Sistema de inventario de radios
+                </footer>
+
+            </main>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+
+</body>
+</html>
