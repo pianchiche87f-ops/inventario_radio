@@ -1,6 +1,6 @@
 
 from django import forms
-from .models import Radio
+from .models import Radio, MovimientoKardex
 
 
 class RadioForm(forms.ModelForm):
@@ -55,6 +55,7 @@ class RadioForm(forms.ModelForm):
 
 
 class ConstatacionForm(forms.Form):
+
     ubicacion = forms.CharField(
         label="Ubicación actual",
         max_length=150,
@@ -73,12 +74,22 @@ class ConstatacionForm(forms.Form):
         }),
     )
 
+    condicion_fisica = forms.ChoiceField(
+        label="Condición física del equipo",
+        choices=[
+            ("", "Seleccione la condición física"),
+        ] + list(MovimientoKardex.CondicionFisica.choices),
+        widget=forms.Select(attrs={
+            "class": "form-select",
+        }),
+    )
+
     descripcion = forms.CharField(
         label="Observaciones de la constatación",
         required=False,
         widget=forms.Textarea(attrs={
             "class": "form-control",
             "rows": 3,
-            "placeholder": "Describe la condición física del radio",
+            "placeholder": "Describe las condiciones encontradas",
         }),
     )

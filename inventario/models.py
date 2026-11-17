@@ -96,6 +96,13 @@ class Radio(models.Model):
 
 
 class MovimientoKardex(models.Model):
+
+    class CondicionFisica(models.TextChoices):
+        BUENO = "bueno", "Buen estado"
+        REGULAR = "regular", "Estado regular"
+        MALO = "malo", "Mal estado"
+        DANADO = "danado", "Dañado / Fuera de servicio"
+
     class Tipo(models.TextChoices):
         REGISTRO = "registro", "Registro inicial"
         ASIGNACION = "asignacion", "Asignación"
@@ -135,6 +142,15 @@ class MovimientoKardex(models.Model):
         max_length=150,
         blank=True,
         verbose_name="Responsable",
+    )
+
+
+    condicion_fisica = models.CharField(
+        max_length=20,
+        choices=CondicionFisica.choices,
+        blank=True,
+        default="",
+        verbose_name="Condición física",
     )
 
     fecha = models.DateTimeField(

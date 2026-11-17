@@ -103,19 +103,20 @@
                     ↔ Trazabilidad
                 </a>
 
-                <a href="{% url 'trazabilidad' %}"
-                   class="nav-link text-white rounded">
+                <a href="{% url 'mantenimiento' %}"
+                 class="nav-link {% if request.resolver_match.url_name == 'mantenimiento' %}active bg-primary{% endif %} text-white rounded">
                     ⚙ Mantenimiento
-                    <small class="d-block text-white-50">Próximamente</small>
                 </a>
 
-                <a href="{% url 'trazabilidad' %}"
-                   class="nav-link {% if request.resolver_match.url_name == 'iniciar_orden' or request.resolver_match.url_name == 'cerrar_orden' %}active bg-primary{% endif %} text-white rounded">
+
+                <a href="{% url 'lista_ordenes' %}"
+                class="nav-link {% if request.resolver_match.url_name == 'lista_ordenes' or request.resolver_match.url_name == 'iniciar_orden' or request.resolver_match.url_name == 'cerrar_orden' %}active bg-primary{% endif %} text-white rounded">
                     ▤ Órdenes de trabajo
                 </a>
 
-                <a href="{% url 'trazabilidad' %}"
-                   class="nav-link text-white rounded">
+
+                <a href="{% url 'lista_constataciones' %}"
+                class="nav-link {% if request.resolver_match.url_name == 'lista_constataciones' %}active bg-primary{% endif %} text-white rounded">
                     ✓ Constatación física
                 </a>
 

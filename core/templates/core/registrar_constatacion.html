@@ -36,21 +36,34 @@
 
                     <p class="text-secondary mb-4">
                         Registra la verificación física del equipo
-                        y sus datos actuales.
+                        y sus condiciones actuales.
                     </p>
 
+                    <!-- Información del equipo -->
                     <div class="alert alert-light border">
                         <div>
                             <strong>Código interno:</strong>
                             {{ radio.codigo_interno }}
                         </div>
+
                         <div>
                             <strong>Equipo:</strong>
                             {{ radio.marca }} {{ radio.modelo }}
                         </div>
+
                         <div>
                             <strong>Número de serie:</strong>
                             {{ radio.numero_serie }}
+                        </div>
+
+                        <div>
+                            <strong>Ubicación registrada:</strong>
+                            {{ radio.ubicacion|default:"No registrada" }}
+                        </div>
+
+                        <div>
+                            <strong>Responsable registrado:</strong>
+                            {{ radio.responsable|default:"No registrado" }}
                         </div>
                     </div>
 
@@ -59,48 +72,80 @@
 
                         {% if formulario.errors %}
                             <div class="alert alert-danger">
-                                Revisa los campos del formulario.
+                                <strong>Revisa los siguientes campos:</strong>
                                 {{ formulario.errors }}
                             </div>
                         {% endif %}
 
+                        <!-- Ubicación -->
                         <div class="mb-3">
-                            <label for="{{ formulario.ubicacion.id_for_label }}"
-                                   class="form-label fw-semibold">
+                            <label
+                                for="{{ formulario.ubicacion.id_for_label }}"
+                                class="form-label fw-semibold">
                                 {{ formulario.ubicacion.label }}
                             </label>
+
                             {{ formulario.ubicacion }}
                         </div>
 
+                        <!-- Responsable -->
                         <div class="mb-3">
-                            <label for="{{ formulario.responsable.id_for_label }}"
-                                   class="form-label fw-semibold">
+                            <label
+                                for="{{ formulario.responsable.id_for_label }}"
+                                class="form-label fw-semibold">
                                 {{ formulario.responsable.label }}
                             </label>
+
                             {{ formulario.responsable }}
                         </div>
 
-                        <div class="mb-4">
-                            <label for="{{ formulario.descripcion.id_for_label }}"
-                                   class="form-label fw-semibold">
-                                {{ formulario.descripcion.label }}
+                        <!-- Condición física -->
+                        <div class="mb-3">
+                            <label
+                                for="{{ formulario.condicion_fisica.id_for_label }}"
+                                class="form-label fw-semibold">
+                                {{ formulario.condicion_fisica.label }}
                             </label>
-                            {{ formulario.descripcion }}
+
+                            {{ formulario.condicion_fisica }}
+
                             <div class="form-text">
-                                Describe la condición del radio y cualquier novedad encontrada.
+                                Selecciona el estado físico real del equipo
+                                durante la revisión.
                             </div>
                         </div>
 
+                        <!-- Observaciones -->
+                        <div class="mb-4">
+                            <label
+                                for="{{ formulario.descripcion.id_for_label }}"
+                                class="form-label fw-semibold">
+                                {{ formulario.descripcion.label }}
+                            </label>
+
+                            {{ formulario.descripcion }}
+
+                            <div class="form-text">
+                                Describe daños, novedades o cualquier
+                                situación encontrada.
+                            </div>
+                        </div>
+
+                        <!-- Botones -->
                         <div class="d-flex flex-wrap gap-2">
-                            <button type="submit"
-                                    class="btn btn-primary">
+
+                            <button
+                                type="submit"
+                                class="btn btn-primary">
                                 Guardar constatación
                             </button>
 
-                            <a href="{% url 'detalle_radio' radio.identificador_qr %}"
-                               class="btn btn-outline-secondary">
+                            <a
+                                href="{% url 'detalle_radio' radio.identificador_qr %}"
+                                class="btn btn-outline-secondary">
                                 Cancelar
                             </a>
+
                         </div>
 
                     </form>

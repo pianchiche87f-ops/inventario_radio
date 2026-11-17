@@ -6,7 +6,7 @@
 {% block page_heading %}Trazabilidad de radios{% endblock %}
 
 {% block page_description %}
-    Consulta el historial de eventos de cada equipo.
+    Consulta el historial de eventos, las órdenes de trabajo y las constataciones físicas de cada equipo.
 {% endblock %}
 
 {% block content %}
@@ -18,7 +18,6 @@
             <label for="codigo" class="form-label fw-semibold">
                 Código interno del radio
             </label>
-
             <div class="input-group">
                 <input
                     type="text"
@@ -30,9 +29,8 @@
                     maxlength="20"
                     required
                 >
-
                 <button type="submit" class="btn btn-primary">
-                    Buscar historial
+                    <i class="bi bi-search me-1"></i> Buscar historial
                 </button>
             </div>
         </form>
@@ -40,9 +38,7 @@
 </div>
 
 {% if error %}
-    <div class="alert alert-warning" role="alert">
-        {{ error }}
-    </div>
+    <div class="alert alert-warning" role="alert">{{ error }}</div>
 {% endif %}
 
 {% if radio %}
@@ -50,34 +46,30 @@
     <!-- Información del equipo -->
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
-            <h2 class="h5 fw-bold mb-3">Información del equipo</h2>
-
+            <h2 class="h5 fw-bold mb-3">
+                <i class="bi bi-radio me-2"></i>Información del equipo
+            </h2>
             <div class="row g-3">
                 <div class="col-12 col-md-4">
                     <span class="text-secondary d-block small">Código interno</span>
                     <strong>{{ radio.codigo_interno }}</strong>
                 </div>
-
                 <div class="col-12 col-md-4">
                     <span class="text-secondary d-block small">Número de serie</span>
                     <strong>{{ radio.numero_serie }}</strong>
                 </div>
-
                 <div class="col-12 col-md-4">
                     <span class="text-secondary d-block small">Marca y modelo</span>
                     <strong>{{ radio.marca }} {{ radio.modelo }}</strong>
                 </div>
-
                 <div class="col-12 col-md-4">
                     <span class="text-secondary d-block small">Estado actual</span>
                     <strong>{{ radio.get_estado_display }}</strong>
                 </div>
-
                 <div class="col-12 col-md-4">
                     <span class="text-secondary d-block small">Ubicación</span>
                     <strong>{{ radio.ubicacion|default:"No especificada" }}</strong>
                 </div>
-
                 <div class="col-12 col-md-4">
                     <span class="text-secondary d-block small">Responsable</span>
                     <strong>{{ radio.responsable|default:"No asignado" }}</strong>
@@ -88,6 +80,11 @@
 
     <!-- Historial de movimientos -->
     <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white py-3">
+            <h2 class="h5 fw-bold mb-0">
+                <i class="bi bi-clock-history me-2"></i>Historial de movimientos
+            </h2>
+        </div>
         <div class="card-body p-0">
             {% if movimientos %}
                 <div class="table-responsive">
@@ -102,24 +99,20 @@
                                 <th>Registrado por</th>
                             </tr>
                         </thead>
-
                         <tbody>
                             {% for movimiento in movimientos %}
                                 <tr>
                                     <td class="ps-4 text-nowrap">
                                         {{ movimiento.fecha|date:"d/m/Y H:i" }}
                                     </td>
-
                                     <td>
                                         <span class="badge text-bg-primary">
                                             {{ movimiento.get_tipo_display }}
                                         </span>
                                     </td>
-
                                     <td>{{ movimiento.descripcion|default:"—" }}</td>
                                     <td>{{ movimiento.ubicacion|default:"—" }}</td>
                                     <td>{{ movimiento.responsable|default:"—" }}</td>
-
                                     <td>
                                         {% if movimiento.registrado_por %}
                                             {{ movimiento.registrado_por.get_username }}
@@ -140,105 +133,82 @@
         </div>
     </div>
 
-{% elif not error and not codigo %}
-    <div class="alert alert-info">
-        Introduce el código interno de un radio para consultar su historial.
-    </div>
-{% endif %}
-
-<!-- Registrar constatación física -->
-<div class="mb-4">
-    {% if radio %}
-        <a
-            href="{% url 'registrar_constatacion' radio.identificador_qr %}"
-            class="btn btn-info"
-        >
-            Registrar constatación física
-        </a>
-    {% else %}
-        <a
-            href="{% url 'lista_radios' %}"
-            class="btn btn-info"
-        >
-            Registrar constatación física
-        </a>
-    {% endif %}
-</div>
-
-<!-- Órdenes de trabajo -->
-<section class="card border-0 shadow-sm mt-4 mb-4">
-    <div class="card-body p-4">
-
-        <div class="d-flex flex-column flex-md-row justify-content-between gap-3 mb-4">
+    <!-- Constatación física -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
             <div>
-                <h2 class="h5 fw-bold mb-1">Órdenes de trabajo</h2>
+                <h2 class="h5 fw-bold mb-1">
+                    <i class="bi bi-clipboard2-check me-2"></i>Constatación física
+                </h2>
                 <p class="text-secondary mb-0">
-                    Registra trabajos, controla vencimientos y consulta las fechas de cierre.
+                    Registra la verificación física, ubicación y responsable actual del radio.
                 </p>
             </div>
+            <a
+                href="{% url 'registrar_constatacion' radio.identificador_qr %}"
+                class="btn btn-info"
+            >
+                <i class="bi bi-clipboard-check me-1"></i> Registrar constatación
+            </a>
+        </div>
+    </div>
 
-            {% if radio %}
+    <!-- Órdenes de trabajo abiertas -->
+    <section class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white py-3">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                <div>
+                    <h2 class="h5 fw-bold mb-1">
+                        <i class="bi bi-clipboard2-pulse me-2"></i>Órdenes de trabajo
+                    </h2>
+                    <p class="text-secondary mb-0">
+                        Órdenes pendientes, en proceso y vencidas de este radio.
+                    </p>
+                </div>
                 <a
                     href="{% url 'iniciar_orden' radio.identificador_qr %}"
                     class="btn btn-primary"
                 >
-                    Iniciar orden
+                    <i class="bi bi-plus-circle me-1"></i> Iniciar orden
                 </a>
-            {% else %}
-                <button type="button" class="btn btn-primary" disabled>
-                    Iniciar orden
-                </button>
-            {% endif %}
+            </div>
         </div>
 
-        {% if not radio %}
-            <div class="alert alert-info mb-0">
-                Busca primero un radio por su código interno para registrar y consultar sus órdenes de trabajo.
-            </div>
-
-        {% elif ordenes %}
-            <div class="table-responsive">
-                <table class="table table-hover align-middle">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Descripción</th>
-                            <th>Responsable</th>
-                            <th>Inicio</th>
-                            <th>Fecha límite</th>
-                            <th>Estado</th>
-                            <th>Terminación real</th>
-                            <th>Acción</th>
-                        </tr>
-                    </thead>
-
-                    <tbody>
-                        {% for orden in ordenes %}
+        <div class="card-body">
+            {% if ordenes_abiertas %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
                             <tr>
-                                <td>{{ orden.descripcion }}</td>
-                                <td>{{ orden.responsable }}</td>
-                                <td>{{ orden.fecha_inicio|date:"d/m/Y H:i" }}</td>
-                                <td>{{ orden.fecha_limite|date:"d/m/Y H:i" }}</td>
-
-                                <td>
-                                    {% if orden.estado == "CERRADA" %}
-                                        <span class="badge text-bg-success">Cerrada</span>
-                                    {% elif orden.vencida %}
-                                        <span class="badge text-bg-danger">Vencida</span>
-                                    {% else %}
-                                        <span class="badge text-bg-warning">En curso</span>
-                                    {% endif %}
-                                </td>
-
-                                <td>
-                                    {% if orden.fecha_terminado %}
-                                        {{ orden.fecha_terminado|date:"d/m/Y H:i" }}
-                                    {% else %}
-                                        <span class="text-secondary">Pendiente</span>
-                                    {% endif %}
-                                </td>
-
-                                <td>
-                                    {% if orden.estado == "INICIADA" %}
+                                <th>Descripción del trabajo</th>
+                                <th>Responsable</th>
+                                <th>Fecha de inicio</th>
+                                <th>Fecha límite</th>
+                                <th>Estado</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for orden in ordenes_abiertas %}
+                                <tr class="{% if orden.vencida %}table-danger{% endif %}">
+                                    <td style="min-width: 220px;">
+                                        {{ orden.descripcion|linebreaksbr }}
+                                    </td>
+                                    <td>{{ orden.responsable }}</td>
+                                    <td class="text-nowrap">
+                                        {{ orden.fecha_inicio|date:"d/m/Y H:i" }}
+                                    </td>
+                                    <td class="text-nowrap">
+                                        {{ orden.fecha_limite|date:"d/m/Y H:i" }}
+                                    </td>
+                                    <td>
+                                        {% if orden.vencida %}
+                                            <span class="badge text-bg-danger">Vencida</span>
+                                        {% else %}
+                                            <span class="badge text-bg-warning">En proceso</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
                                         <form
                                             method="post"
                                             action="{% url 'cerrar_orden' orden.id %}"
@@ -246,35 +216,96 @@
                                         >
                                             {% csrf_token %}
                                             <button type="submit" class="btn btn-sm btn-outline-success">
-                                                Cerrar orden
+                                                <i class="bi bi-check-circle me-1"></i>Cerrar orden
                                             </button>
                                         </form>
-                                    {% else %}
-                                        <span class="text-secondary">Finalizada</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-
-                            {% if orden.vencida %}
-                                <tr class="table-danger">
-                                    <td colspan="7">
-                                        <strong>¡Alerta de vencimiento!</strong>
-                                        La orden sigue abierta y superó su fecha límite.
                                     </td>
                                 </tr>
-                            {% endif %}
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        {% else %}
-            <div class="alert alert-secondary mb-0">
-                Este radio todavía no tiene órdenes de trabajo.
-                Pulsa «Iniciar orden» para registrar la primera.
-            </div>
-        {% endif %}
+                                {% if orden.vencida %}
+                                    <tr class="table-danger">
+                                        <td colspan="6">
+                                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                            <strong>¡Alerta de vencimiento!</strong>
+                                            Esta orden sigue abierta y superó la fecha límite indicada.
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-secondary mb-0">
+                    Este radio no tiene órdenes de trabajo pendientes o en proceso.
+                </div>
+            {% endif %}
+        </div>
+    </section>
 
+    <!-- Órdenes cerradas -->
+    <section class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-success text-white py-3">
+            <h2 class="h5 fw-bold mb-0">
+                <i class="bi bi-clipboard-check me-2"></i>Órdenes cerradas
+            </h2>
+        </div>
+        <div class="card-body">
+            <p class="text-secondary">
+                Historial de trabajos finalizados para este radio.
+            </p>
+
+            {% if ordenes_cerradas %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-bordered align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Descripción del trabajo</th>
+                                <th>Responsable</th>
+                                <th>Fecha de inicio</th>
+                                <th>Fecha límite</th>
+                                <th>Fecha de terminación</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for orden in ordenes_cerradas %}
+                                <tr>
+                                    <td style="min-width: 220px;">
+                                        {{ orden.descripcion|linebreaksbr }}
+                                    </td>
+                                    <td>{{ orden.responsable }}</td>
+                                    <td class="text-nowrap">
+                                        {{ orden.fecha_inicio|date:"d/m/Y H:i" }}
+                                    </td>
+                                    <td class="text-nowrap">
+                                        {{ orden.fecha_limite|date:"d/m/Y H:i" }}
+                                    </td>
+                                    <td class="text-nowrap">
+                                        {{ orden.fecha_terminado|date:"d/m/Y H:i"|default:"—" }}
+                                    </td>
+                                    <td>
+                                        <span class="badge text-bg-success">
+                                            {{ orden.get_estado_display }}
+                                        </span>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-info mb-0">
+                    Este radio todavía no tiene órdenes de trabajo cerradas.
+                </div>
+            {% endif %}
+        </div>
+    </section>
+
+{% elif not error and not codigo %}
+    <div class="alert alert-info">
+        Introduce el código interno de un radio para consultar sus movimientos,
+        órdenes de trabajo y constatación física.
     </div>
-</section>
+{% endif %}
 
 {% endblock %}

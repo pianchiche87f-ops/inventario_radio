@@ -2,7 +2,7 @@
 from django import forms
 from django.utils import timezone
 
-from .models import OrdenTrabajo
+from .models import OrdenTrabajo, Mantenimiento
 from inventario.models import Radio
 
 
@@ -62,3 +62,73 @@ class OrdenTrabajoForm(forms.ModelForm):
             )
 
         return datos
+
+
+
+class MantenimientoForm(forms.ModelForm):
+
+    radio = forms.ModelChoiceField(
+        queryset=Radio.objects.all().order_by("codigo_interno"),
+        label="Equipo",
+        empty_label="Selecciona un equipo",
+    )
+
+    fecha_prevista = forms.DateField(
+        label="Fecha prevista",
+        input_formats=["%Y-%m-%d"],
+        widget=forms.DateInput(
+            format="%Y-%m-%d",
+            attrs={"type": "date"},
+        ),
+    )
+
+    class Meta:
+        model = Mantenimiento
+        fields = [
+            "radio",
+            "tipo_intervencion",
+            "descripcion",
+            "fecha_prevista",
+        ]
+
+        widgets = {
+            "descripcion": forms.Textarea(
+                attrs={
+                    "rows": 4,
+                    "placeholder": "Describe el mantenimiento que se realizará...",
+                },
+            ),
+            "tipo_intervencion": forms.Select(
+                attrs={"class": "form-select"},
+            ),
+        }
+
+    def clean_radio(self):
+        radio = self.cleaned_data["radio"]
+
+        mantenimiento_activo = Mantenimiento.objects.filter(
+            radio=radio,
+            anulado=False,
+            estado__in=[
+                Mantenimiento.PENDIENTE,
+                Mantenimiento.EN_PROCESO,
+            ],
+        ).exists()
+
+        if mantenimiento_activo:
+            raise forms.ValidationError(
+                "Este equipo ya tiene un mantenimiento pendiente o en proceso. "
+                "Debes finalizarlo o anularlo antes de registrar otro."
+            )
+
+        return radio
+
+    def clean_fecha_prevista(self):
+        fecha = self.cleaned_data["fecha_prevista"]
+
+        if fecha < timezone.localdate():
+            raise forms.ValidationError(
+                "La fecha prevista no puede ser anterior al día de hoy."
+            )
+
+        return fecha

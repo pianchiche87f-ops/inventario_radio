@@ -1,0 +1,270 @@
+
+{% extends "core/base.html" %}
+
+{% block title %}Constataciones físicas{% endblock %}
+
+{% block page_heading %}Constataciones físicas{% endblock %}
+
+{% block page_description %}
+Control y seguimiento de las verificaciones físicas de los equipos de comunicación.
+{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'ingresar_constatacion' %}"
+   class="btn btn-primary">
+    <i class="bi bi-qr-code-scan me-2"></i>
+    Registrar constatación
+</a>
+{% endblock %}
+
+{% block content %}
+
+<!-- RESUMEN GENERAL -->
+<div class="row g-3 mb-4">
+
+    <div class="col-12 col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <p class="text-secondary mb-2">Total de equipos</p>
+                <h2 class="fw-bold mb-0">{{ total_equipos }}</h2>
+                <small class="text-secondary">Equipos registrados en inventario</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <p class="text-secondary mb-2">Equipos constatados</p>
+                <h2 class="fw-bold text-success mb-0">{{ equipos_constatados }}</h2>
+                <small class="text-secondary">Equipos con al menos una constatación</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <p class="text-secondary mb-2">Equipos pendientes</p>
+                <h2 class="fw-bold text-danger mb-0">{{ equipos_pendientes }}</h2>
+                <small class="text-secondary">Equipos que todavía no se han constatado</small>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- AVANCE GENERAL -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h2 class="h5 fw-bold mb-0">Avance de constatación física</h2>
+            <span class="fw-bold text-primary">
+                {{ porcentaje_avance }}%
+            </span>
+        </div>
+
+
+        <div class="progress w-100" style="height: 22px;">
+            <div
+                class="progress-bar bg-success"
+                role="progressbar"
+                style="
+                    width: {{ porcentaje_avance }}%;
+                    flex: 0 0 {{ porcentaje_avance }}%;
+                "
+                aria-valuenow="{{ porcentaje_avance }}"
+                aria-valuemin="0"
+                aria-valuemax="100">
+                {{ porcentaje_avance }}%
+            </div>
+        </div>
+
+        <small class="text-secondary d-block mt-2">
+            {{ equipos_constatados }} de {{ total_equipos }} equipos constatados.
+        </small>
+
+    </div>
+</div>
+
+<!-- BUSCADOR Y FILTROS -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <h2 class="h5 mb-0">Buscar constataciones</h2>
+            <span class="badge text-bg-primary">
+                {{ total_constataciones }} registros
+            </span>
+        </div>
+
+        <form method="GET" class="row g-3">
+
+            <div class="col-12 col-md-4">
+                <label class="form-label">Código interno</label>
+                <input
+                    type="text"
+                    name="codigo"
+                    class="form-control"
+                    value="{{ codigo }}"
+                    placeholder="Ej. RAD-001"
+                >
+            </div>
+
+            <div class="col-12 col-md-3">
+                <label class="form-label">Desde</label>
+                <input
+                    type="date"
+                    name="desde"
+                    class="form-control"
+                    value="{{ fecha_desde }}"
+                >
+            </div>
+
+            <div class="col-12 col-md-3">
+                <label class="form-label">Hasta</label>
+                <input
+                    type="date"
+                    name="hasta"
+                    class="form-control"
+                    value="{{ fecha_hasta }}"
+                >
+            </div>
+
+            <div class="col-12 col-md-2 d-flex align-items-end gap-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    Buscar
+                </button>
+
+                <a
+                    href="{% url 'lista_constataciones' %}"
+                    class="btn btn-outline-secondary"
+                >
+                    Limpiar
+                </a>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+<!-- HISTORIAL -->
+<div class="card border-0 shadow-sm">
+    <div class="card-body">
+
+        <h2 class="h5 mb-3">Historial de constataciones</h2>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+
+                <thead class="table-light">
+                    <tr>
+                        <th>Código</th>
+                        <th>Número de serie</th>
+                        <th>Ubicación</th>
+                        <th>Responsable</th>
+                        <th>Condición física</th>
+                        <th>Estado administrativo</th>
+                        <th>Fecha</th>
+                        <th>Registrado por</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for movimiento in constataciones %}
+
+                    <tr>
+                        <td class="fw-semibold">
+                            {{ movimiento.radio.codigo_interno }}
+                        </td>
+
+                        <td>
+                            {{ movimiento.radio.numero_serie }}
+                        </td>
+
+                        <td>
+                            {{ movimiento.ubicacion|default:"No registrada" }}
+                        </td>
+
+                        <td>
+                            {{ movimiento.responsable|default:"No registrado" }}
+                        </td>
+
+                        <!-- CONDICIÓN FÍSICA -->
+                        <td>
+                            {% if movimiento.condicion_fisica == "bueno" %}
+                                <span class="badge text-bg-success">
+                                    Buen estado
+                                </span>
+
+                            {% elif movimiento.condicion_fisica == "regular" %}
+                                <span class="badge text-bg-warning">
+                                    Estado regular
+                                </span>
+
+                            {% elif movimiento.condicion_fisica == "malo" %}
+                                <span class="badge text-bg-danger">
+                                    Mal estado
+                                </span>
+
+                            {% elif movimiento.condicion_fisica == "danado" %}
+                                <span class="badge text-bg-dark">
+                                    Dañado / Fuera de servicio
+                                </span>
+
+                            {% else %}
+                                <span class="badge text-bg-secondary">
+                                    No registrada
+                                </span>
+                            {% endif %}
+                        </td>
+
+                        <!-- ESTADO ADMINISTRATIVO -->
+                        <td>
+                            {{ movimiento.radio.get_estado_display }}
+                        </td>
+
+                        <td>
+                            {{ movimiento.fecha|date:"d/m/Y H:i" }}
+                        </td>
+
+                        <td>
+                            {% if movimiento.registrado_por %}
+                                {{ movimiento.registrado_por.username }}
+                            {% else %}
+                                No registrado
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            <a
+                                href="{% url 'detalle_radio' movimiento.radio.identificador_qr %}"
+                                class="btn btn-sm btn-outline-primary"
+                            >
+                                Ver equipo
+                            </a>
+                        </td>
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+                        <td colspan="9" class="text-center py-4 text-secondary">
+                            No se encontraron constataciones físicas.
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,207 @@
+lista_ordenes
+
+
+{% extends "core/base.html" %}
+
+{% block title %}Órdenes de trabajo{% endblock %}
+
+{% block page_heading %}Órdenes de trabajo{% endblock %}
+
+{% block page_description %}
+Organiza, consulta y controla las tareas técnicas de los equipos.
+{% endblock %}
+
+{% block page_actions %}
+<div class="d-flex flex-wrap gap-2">
+    <a href="{% url 'seleccionar_radio_orden' %}" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-2"></i>
+        Seleccionar equipo
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<!-- Indicadores -->
+<section class="row g-3 mb-4">
+
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <h2 class="h6 text-secondary">Total de órdenes</h2>
+                    <i class="bi bi-clipboard-data text-secondary fs-3"></i>
+                </div>
+                <p class="display-6 fw-bold mb-1">{{ total_ordenes }}</p>
+                <small class="text-secondary">Órdenes registradas</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <h2 class="h6 text-secondary">En proceso</h2>
+                    <i class="bi bi-hourglass-split text-primary fs-3"></i>
+                </div>
+                <p class="display-6 fw-bold text-primary mb-1">
+                    {{ ordenes_en_proceso }}
+                </p>
+                <small class="text-secondary">Tareas pendientes de cierre</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <h2 class="h6 text-secondary">Vencidas</h2>
+                    <i class="bi bi-exclamation-triangle-fill text-danger fs-3"></i>
+                </div>
+                <p class="display-6 fw-bold text-danger mb-1">
+                    {{ ordenes_vencidas }}
+                </p>
+                <small class="text-secondary">Superaron su fecha límite</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <h2 class="h6 text-secondary">Finalizadas</h2>
+                    <i class="bi bi-check-circle-fill text-success fs-3"></i>
+                </div>
+                <p class="display-6 fw-bold text-success mb-1">
+                    {{ ordenes_finalizadas }}
+                </p>
+                <small class="text-secondary">Trabajos cerrados</small>
+            </div>
+        </div>
+    </div>
+
+</section>
+
+<!-- Listado de órdenes -->
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-4">
+
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+            <div>
+                <h2 class="h5 fw-bold mb-1">Listado de órdenes</h2>
+                <p class="text-secondary small mb-0">
+                    Consulta el estado y los plazos de los trabajos técnicos.
+                </p>
+            </div>
+            <span class="badge text-bg-secondary">
+                {{ total_ordenes }} órdenes
+            </span>
+        </div>
+
+        {% if ordenes %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Equipo</th>
+                        <th>Descripción</th>
+                        <th>Responsable</th>
+                        <th>Inicio</th>
+                        <th>Fecha límite</th>
+                        <th>Estado</th>
+                        <th class="text-center">Acción</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for orden in ordenes %}
+                    <tr>
+                        <td>
+                            <strong>{{ orden.codigo_radio }}</strong>
+                            {% if orden.radio %}
+                                <small class="d-block text-secondary">
+                                    {{ orden.radio.marca }} {{ orden.radio.modelo }}
+                                </small>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            <div style="min-width: 180px; max-width: 280px;">
+                                {{ orden.descripcion|truncatechars:100 }}
+                            </div>
+                        </td>
+
+                        <td>{{ orden.responsable }}</td>
+
+                        <td class="text-nowrap">
+                            {{ orden.fecha_inicio|date:"d/m/Y H:i" }}
+                        </td>
+
+                        <td class="text-nowrap">
+                            {{ orden.fecha_limite|date:"d/m/Y H:i" }}
+                        </td>
+
+                        <td>
+                            {% if orden.estado == "CERRADA" %}
+                                <span class="badge text-bg-success">
+                                    Finalizada
+                                </span>
+                            {% elif orden.vencida %}
+                                <span class="badge text-bg-danger">
+                                    Vencida
+                                </span>
+                            {% else %}
+                                <span class="badge text-bg-primary">
+                                    En proceso
+                                </span>
+                            {% endif %}
+                        </td>
+
+                        <td class="text-center">
+                            {% if orden.estado == "INICIADA" %}
+                                <form
+                                    method="post"
+                                    action="{% url 'cerrar_orden' orden.id %}"
+                                    onsubmit="return confirm('¿Confirmas que deseas cerrar esta orden de trabajo?');"
+                                >
+                                    {% csrf_token %}
+                                    <button
+                                        type="submit"
+                                        class="btn btn-sm btn-outline-success text-nowrap"
+                                    >
+                                        <i class="bi bi-check-circle me-1"></i>
+                                        Cerrar
+                                    </button>
+                                </form>
+                            {% else %}
+                                <span class="text-secondary small">
+                                    Sin acciones
+                                </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-clipboard-x display-4 text-secondary"></i>
+            <h3 class="h6 fw-bold mt-3">No hay órdenes registradas</h3>
+            <p class="text-secondary mb-3">
+                Selecciona un equipo para iniciar una nueva orden de trabajo.
+            </p>
+                <a href="{% url 'seleccionar_radio_orden' %}" class="btn btn-primary">
+                    Seleccionar equipo
+                </a>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+
+{% endblock %}

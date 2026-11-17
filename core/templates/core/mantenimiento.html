@@ -1,0 +1,589 @@
+
+{% extends "core/base.html" %}
+
+{% block title %}Mantenimiento | Inventario de Radios{% endblock %}
+
+{% block page_heading %}Panel de mantenimiento{% endblock %}
+
+{% block page_description %}
+    Gestiona los mantenimientos preventivos y correctivos de los equipos.
+{% endblock %}
+
+{% block content %}
+
+<!-- Encabezado -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+        <h2 class="h5 fw-bold mb-1">Gestión de mantenimiento</h2>
+        <p class="text-secondary mb-0">
+            Registro, seguimiento y control de intervenciones técnicas.
+        </p>
+    </div>
+
+    <button
+        class="btn btn-primary"
+        type="button"
+        data-bs-toggle="collapse"
+        data-bs-target="#formularioMantenimiento"
+        aria-expanded="false"
+        aria-controls="formularioMantenimiento"
+    >
+        <i class="bi bi-plus-circle me-2"></i>Registrar mantenimiento
+    </button>
+</div>
+
+<!-- Mensajes -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Formulario de registro -->
+<div class="collapse mb-4" id="formularioMantenimiento">
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-primary text-white py-3">
+            <h2 class="h5 mb-0">
+                <i class="bi bi-tools me-2"></i>Registrar intervención
+            </h2>
+        </div>
+
+        <div class="card-body p-4">
+            <form method="post">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {{ form.non_field_errors }}
+                    </div>
+                {% endif %}
+
+                <div class="row g-3">
+
+                    <div class="col-12 col-md-6">
+                        <label for="{{ form.radio.id_for_label }}" class="form-label fw-semibold">
+                            Equipo
+                        </label>
+                        {{ form.radio }}
+                        {% for error in form.radio.errors %}
+                            <div class="text-danger small">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <label for="{{ form.tipo_intervencion.id_for_label }}" class="form-label fw-semibold">
+                            Tipo de intervención
+                        </label>
+                        {{ form.tipo_intervencion }}
+                        {% for error in form.tipo_intervencion.errors %}
+                            <div class="text-danger small">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="col-12">
+                        <label for="{{ form.descripcion.id_for_label }}" class="form-label fw-semibold">
+                            Descripción del mantenimiento
+                        </label>
+                        {{ form.descripcion }}
+                        {% for error in form.descripcion.errors %}
+                            <div class="text-danger small">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <label for="{{ form.fecha_prevista.id_for_label }}" class="form-label fw-semibold">
+                            Fecha prevista
+                        </label>
+                        {{ form.fecha_prevista }}
+                        {% for error in form.fecha_prevista.errors %}
+                            <div class="text-danger small">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#formularioMantenimiento"
+                    >
+                        Cancelar
+                    </button>
+
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save me-2"></i>Guardar mantenimiento
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Resumen de mantenimientos -->
+<div class="row g-3 mb-4">
+
+    <div class="col-12 col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <span class="text-secondary small">Total de mantenimientos</span>
+                <h3 class="fw-bold mb-0">{{ mantenimientos.count }}</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <span class="text-secondary small">Pendientes o en proceso</span>
+                <h3 class="fw-bold text-warning mb-0">
+                    {{ mantenimientos_activos }}
+                </h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <span class="text-secondary small">Mantenimientos vencidos</span>
+                <h3 class="fw-bold text-danger mb-0">
+                    {{ mantenimientos_vencidos }}
+                </h3>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Tabla de mantenimientos -->
+<div class="card border-0 shadow-sm">
+
+    <div class="card-header bg-white py-3">
+        <h2 class="h5 fw-bold mb-0">
+            <i class="bi bi-table me-2"></i>Listado de mantenimientos
+        </h2>
+    </div>
+
+    <div class="card-body p-0">
+
+        {% if mantenimientos %}
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-3">Equipo</th>
+                            <th>Intervención</th>
+                            <th>Fecha de registro</th>
+                            <th>Fecha prevista</th>
+                            <th>Estado</th>
+                            <th class="text-center">Acción</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                        {% for mantenimiento in mantenimientos %}
+
+                            <tr class="{% if mantenimiento.vencido %}table-danger{% endif %}">
+
+                                <td class="ps-3">
+                                    <strong>
+                                        {{ mantenimiento.radio.codigo_interno }}
+                                    </strong>
+                                    <small class="d-block text-secondary">
+                                        {{ mantenimiento.radio.marca }}
+                                        {{ mantenimiento.radio.modelo }}
+                                    </small>
+                                </td>
+
+                                <td>
+                                    {% if mantenimiento.tipo_intervencion == "PREVENTIVO" %}
+                                        <span class="badge text-bg-info">
+                                            Preventivo
+                                        </span>
+                                    {% else %}
+                                        <span class="badge text-bg-warning">
+                                            Correctivo
+                                        </span>
+                                    {% endif %}
+                                </td>
+
+                                <td class="text-nowrap">
+                                    {{ mantenimiento.fecha_registro|date:"d/m/Y H:i" }}
+                                </td>
+
+                                <td class="text-nowrap">
+                                    {{ mantenimiento.fecha_prevista|date:"d/m/Y" }}
+
+                                    {% if mantenimiento.vencido %}
+                                        <div class="text-danger small fw-bold mt-1">
+                                            <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                                            ¡Fecha vencida!
+                                        </div>
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    {% if mantenimiento.estado == "FINALIZADO" %}
+                                        <span class="badge text-bg-success">
+                                            Finalizado
+                                        </span>
+
+                                    {% elif mantenimiento.vencido %}
+                                        <span class="badge text-bg-danger">
+                                            Vencido
+                                        </span>
+
+                                    {% elif mantenimiento.estado == "EN_PROCESO" %}
+                                        <span class="badge text-bg-primary">
+                                            En proceso
+                                        </span>
+
+                                    {% else %}
+                                        <span class="badge text-bg-secondary">
+                                            Pendiente
+                                        </span>
+                                    {% endif %}
+                                </td>
+
+                                
+                                <td class="text-center">
+                                    <div class="d-flex justify-content-center gap-1 flex-wrap">
+
+                                        <!-- Botón ver detalles -->
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-outline-primary"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#detalles{{ mantenimiento.id }}"
+                                            title="Ver detalles"
+                                        >
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+
+                                        {% if mantenimiento.estado == "EN_PROCESO" and not mantenimiento.anulado %}
+
+                                            <!-- Botón finalizar -->
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-success"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#finalizar{{ mantenimiento.id }}"
+                                            >
+                                                <i class="bi bi-check-circle me-1"></i>Finalizar
+                                            </button>
+
+                                            <!-- Botón anular -->
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-outline-danger"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#anular{{ mantenimiento.id }}"
+                                            >
+                                                <i class="bi bi-x-circle me-1"></i>Anular
+                                            </button>
+
+                                        {% elif mantenimiento.anulado %}
+
+                                            <span class="badge text-bg-danger">Anulado</span>
+
+                                        {% elif mantenimiento.estado == "FINALIZADO" %}
+
+                                            <span class="badge text-bg-success">Finalizado</span>
+
+                                        {% endif %}
+
+                                    </div>
+
+                                    <!-- MODAL: VER DETALLES -->
+                                    <div
+                                        class="modal fade"
+                                        id="detalles{{ mantenimiento.id }}"
+                                        tabindex="-1"
+                                        aria-hidden="true"
+                                    >
+                                        <div class="modal-dialog modal-dialog-centered modal-lg">
+                                            <div class="modal-content">
+
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">
+                                                        <i class="bi bi-info-circle me-2"></i>
+                                                        Detalles del mantenimiento
+                                                    </h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                </div>
+
+                                                <div class="modal-body text-start">
+
+                                                    <h6 class="fw-bold text-primary">Información del equipo</h6>
+
+                                                    <p>
+                                                        <strong>Código:</strong>
+                                                        {{ mantenimiento.radio.codigo_interno }}
+                                                    </p>
+
+                                                    <p>
+                                                        <strong>Marca:</strong>
+                                                        {{ mantenimiento.radio.marca }}
+                                                    </p>
+
+                                                    <p>
+                                                        <strong>Modelo:</strong>
+                                                        {{ mantenimiento.radio.modelo }}
+                                                    </p>
+
+                                                    <hr>
+
+                                                    <h6 class="fw-bold text-primary">Información del mantenimiento</h6>
+
+                                                    <p>
+                                                        <strong>Tipo:</strong>
+                                                        {{ mantenimiento.get_tipo_intervencion_display }}
+                                                    </p>
+
+                                                    <p>
+                                                        <strong>Descripción:</strong><br>
+                                                        {{ mantenimiento.descripcion|linebreaksbr }}
+                                                    </p>
+
+                                                    <p>
+                                                        <strong>Fecha de registro:</strong>
+                                                        {{ mantenimiento.fecha_registro|date:"d/m/Y H:i" }}
+                                                    </p>
+
+                                                    <p>
+                                                        <strong>Fecha prevista:</strong>
+                                                        {{ mantenimiento.fecha_prevista|date:"d/m/Y" }}
+                                                    </p>
+
+                                                    <p>
+                                                        <strong>Estado:</strong>
+
+                                                        {% if mantenimiento.anulado %}
+                                                            <span class="badge text-bg-danger">Anulado</span>
+                                                        {% elif mantenimiento.estado == "FINALIZADO" %}
+                                                            <span class="badge text-bg-success">Finalizado</span>
+                                                        {% elif mantenimiento.estado == "EN_PROCESO" %}
+                                                            <span class="badge text-bg-primary">En proceso</span>
+                                                        {% else %}
+                                                            <span class="badge text-bg-secondary">Pendiente</span>
+                                                        {% endif %}
+                                                    </p>
+
+                                                    {% if mantenimiento.estado == "FINALIZADO" %}
+                                                        <hr>
+                                                        <h6 class="fw-bold text-success">Finalización</h6>
+
+                                                        <p>
+                                                            <strong>Trabajo realizado:</strong><br>
+                                                            {{ mantenimiento.trabajo_realizado|linebreaksbr }}
+                                                        </p>
+
+                                                        <p>
+                                                            <strong>Fecha de finalización:</strong>
+                                                            {{ mantenimiento.fecha_finalizacion|date:"d/m/Y H:i" }}
+                                                        </p>
+
+                                                        <p>
+                                                            <strong>Finalizado por:</strong>
+                                                            {{ mantenimiento.finalizado_por|default:"No registrado" }}
+                                                        </p>
+
+                                                        <p>
+                                                            <strong>Resultado:</strong>
+                                                            {{ mantenimiento.get_resultado_display|default:mantenimiento.resultado }}
+                                                        </p>
+                                                    {% endif %}
+
+                                                    {% if mantenimiento.anulado %}
+                                                        <hr>
+                                                        <h6 class="fw-bold text-danger">Información de anulación</h6>
+
+                                                        <p>
+                                                            <strong>Motivo:</strong><br>
+                                                            {{ mantenimiento.motivo_anulacion|linebreaksbr }}
+                                                        </p>
+
+                                                        <p>
+                                                            <strong>Fecha:</strong>
+                                                            {{ mantenimiento.fecha_anulacion|date:"d/m/Y H:i" }}
+                                                        </p>
+
+                                                        <p>
+                                                            <strong>Anulado por:</strong>
+                                                            {{ mantenimiento.anulado_por|default:"No registrado" }}
+                                                        </p>
+                                                    {% endif %}
+
+                                                </div>
+
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                                        Cerrar
+                                                    </button>
+                                                </div>
+
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- MODAL: FINALIZAR -->
+                                    {% if mantenimiento.estado == "EN_PROCESO" and not mantenimiento.anulado %}
+                                        <div
+                                            class="modal fade"
+                                            id="finalizar{{ mantenimiento.id }}"
+                                            tabindex="-1"
+                                            aria-hidden="true"
+                                        >
+                                            <div class="modal-dialog modal-dialog-centered">
+                                                <div class="modal-content">
+
+                                                    <form
+                                                        method="post"
+                                                        action="{% url 'finalizar_mantenimiento' mantenimiento.id %}"
+                                                    >
+                                                        {% csrf_token %}
+
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title">Finalizar mantenimiento</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                        </div>
+
+                                                        <div class="modal-body text-start">
+                                                            <p>
+                                                                Equipo:
+                                                                <strong>{{ mantenimiento.radio.codigo_interno }}</strong>
+                                                            </p>
+
+                                                            <label class="form-label fw-semibold">
+                                                                Trabajo realizado
+                                                            </label>
+
+                                                            <textarea
+                                                                name="trabajo_realizado"
+                                                                class="form-control"
+                                                                rows="4"
+                                                                required
+                                                                placeholder="Describe las actividades realizadas..."
+                                                            ></textarea>
+
+                                                            <div class="alert alert-info mt-3 mb-0">
+                                                                Al finalizar, se restaurará el estado anterior del equipo
+                                                                y se registrará el movimiento en el Kardex.
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                                                Cancelar
+                                                            </button>
+                                                            <button type="submit" class="btn btn-success">
+                                                                Confirmar finalización
+                                                            </button>
+                                                        </div>
+
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- MODAL: ANULAR -->
+                                        <div
+                                            class="modal fade"
+                                            id="anular{{ mantenimiento.id }}"
+                                            tabindex="-1"
+                                            aria-hidden="true"
+                                        >
+                                            <div class="modal-dialog modal-dialog-centered">
+                                                <div class="modal-content">
+
+                                                    <form
+                                                        method="post"
+                                                        action="{% url 'anular_mantenimiento' mantenimiento.id %}"
+                                                    >
+                                                        {% csrf_token %}
+
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title text-danger">
+                                                                Anular mantenimiento
+                                                            </h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                        </div>
+
+                                                        <div class="modal-body text-start">
+
+                                                            <p>
+                                                                Equipo:
+                                                                <strong>{{ mantenimiento.radio.codigo_interno }}</strong>
+                                                            </p>
+
+                                                            <div class="alert alert-warning">
+                                                                Esta acción anulará el mantenimiento y restaurará
+                                                                el estado anterior del equipo.
+                                                            </div>
+
+                                                            <label class="form-label fw-semibold">
+                                                                Motivo de anulación
+                                                            </label>
+
+                                                            <textarea
+                                                                name="motivo_anulacion"
+                                                                class="form-control"
+                                                                rows="4"
+                                                                required
+                                                                placeholder="Explica por qué se anula este mantenimiento..."
+                                                            ></textarea>
+
+                                                        </div>
+
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                                                Volver
+                                                            </button>
+
+                                                            <button type="submit" class="btn btn-danger">
+                                                                Confirmar anulación
+                                                            </button>
+                                                        </div>
+
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+
+                                </td>
+
+
+                            </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+            </div>
+
+        {% else %}
+
+            <div class="text-center p-5">
+                <i class="bi bi-tools fs-1 text-secondary"></i>
+                <h3 class="h5 mt-3">No hay mantenimientos registrados</h3>
+                <p class="text-secondary mb-0">
+                    Utiliza el botón «Registrar mantenimiento» para agregar la primera intervención.
+                </p>
+            </div>
+
+        {% endif %}
+
+    </div>
+</div>
+
+{% endblock %}

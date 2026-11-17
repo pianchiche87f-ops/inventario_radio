@@ -63,6 +63,21 @@ urlpatterns = [
         name="trazabilidad",
     ),
 
+
+
+    path(
+        "constataciones/",
+        views.lista_constataciones,
+        name="lista_constataciones",
+    ),
+    
+    path(
+        "constataciones/registrar/",
+        views.ingresar_constatacion,
+        name="ingresar_constatacion",
+    ),
+
+
         
     path(
         "trazabilidad/radio/<uuid:identificador_qr>/orden/iniciar/",
@@ -75,6 +90,34 @@ urlpatterns = [
         views.cerrar_orden,
         name="cerrar_orden",
     ),
+
+    path("mantenimiento/", views.mantenimiento, name="mantenimiento"),
+
+    path(
+        "mantenimiento/<int:mantenimiento_id>/finalizar/",
+        views.finalizar_mantenimiento,
+        name="finalizar_mantenimiento",
+    ),
+
+    path(
+        "mantenimiento/anular/<int:mantenimiento_id>/",
+        views.anular_mantenimiento,
+        name="anular_mantenimiento",
+    ),
+
+
+    path(
+        "ordenes-trabajo/",
+        views.lista_ordenes,
+        name="lista_ordenes",
+    ),
+
+    path(
+    "ordenes-trabajo/seleccionar-equipo/",
+    views.seleccionar_radio_orden,
+    name="seleccionar_radio_orden",
+),
+
 
 ]
 

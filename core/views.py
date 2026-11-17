@@ -5,11 +5,11 @@ from django.db import transaction
 from django.shortcuts import render, redirect, get_object_or_404
 from inventario.forms import RadioForm, ConstatacionForm
 from inventario.models import Radio, MovimientoKardex
-from .forms import OrdenTrabajoForm
-from .models import OrdenTrabajo
+from .forms import OrdenTrabajoForm, MantenimientoForm
+from .models import OrdenTrabajo, Mantenimiento
 from inventario.qr import generar_qr_radio
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Q, OuterRef, Subquery
 
 @login_required(login_url="login")
 def dashboard(request):
@@ -135,41 +135,25 @@ def lista_radios(request):
         },
     )
 
+
 @login_required(login_url="login")
 def registrar_radio(request):
     if request.method == "POST":
         formulario = RadioForm(request.POST)
 
         if formulario.is_valid():
-            with transaction.atomic():
-                radio = formulario.save()
+            radio = formulario.save()
 
-                imagen_qr = generar_qr_radio(radio, request)
-
-                radio.imagen_qr.save(
-                    imagen_qr.name,
-                    imagen_qr,
-                    save=True,
-                )
-
-                MovimientoKardex.objects.create(
-                    radio=radio,
-                    tipo=MovimientoKardex.Tipo.REGISTRO,
-                    descripcion=(
-                        "Registro inicial del equipo en el sistema."
-                    ),
-                    ubicacion=radio.ubicacion,
-                    responsable=radio.responsable,
-                    registrado_por=request.user,
-                )
+            if not radio.imagen_qr:
+                radio.imagen_qr = generar_qr_radio(radio, request)
+                radio.save(update_fields=["imagen_qr"])
 
             messages.success(
                 request,
-                f"El radio {radio.codigo_interno} "
-                "se registró correctamente.",
+                "Radio registrado correctamente."
             )
 
-            return redirect("lista_radios")
+            return redirect("lista_constataciones")
 
     else:
         formulario = RadioForm()
@@ -177,9 +161,68 @@ def registrar_radio(request):
     return render(
         request,
         "core/registrar_radio.html",
-        {"formulario": formulario},
+        {
+            "formulario": formulario,
+        },
     )
 
+
+@login_required(login_url="login")
+def ingresar_constatacion(request):
+    error = None
+
+    if request.method == "POST":
+        identificador = request.POST.get(
+            "identificador", ""
+        ).strip()
+
+        if not identificador:
+            error = "Ingresa el código interno o escanea el QR."
+
+        else:
+            # Primero buscar por código interno.
+            radio = Radio.objects.filter(
+                codigo_interno__iexact=identificador
+            ).first()
+
+            # Si no existe, intentar identificarlo mediante UUID.
+            if radio is None:
+                from uuid import UUID
+
+                identificador_qr = (
+                    identificador.rstrip("/").split("/")[-1]
+                )
+
+                try:
+                    uuid_validado = UUID(identificador_qr)
+
+                    radio = Radio.objects.filter(
+                        identificador_qr=uuid_validado
+                    ).first()
+
+                except ValueError:
+                    radio = None
+
+            # Si se encontró el equipo, abrir el formulario.
+            if radio:
+                return redirect(
+                    "registrar_constatacion",
+                    identificador_qr=radio.identificador_qr,
+                )
+
+            # Si no existe, mostrar mensaje.
+            error = (
+                "Equipo no registrado. Verifica el código interno "
+                "o el código QR e inténtalo nuevamente."
+            )
+
+    return render(
+        request,
+        "core/ingresar_constatacion.html",
+        {
+            "error": error,
+        },
+    )
 
 @login_required(login_url="login")
 def detalle_radio(request, identificador_qr):
@@ -252,17 +295,15 @@ def generador_qr(request):
 @login_required(login_url="login")
 def trazabilidad(request):
     codigo = request.GET.get("codigo", "").strip()
-
     radio = None
     movimientos = MovimientoKardex.objects.none()
-    ordenes = OrdenTrabajo.objects.none()
+    ordenes_abiertas = OrdenTrabajo.objects.none()
+    ordenes_cerradas = OrdenTrabajo.objects.none()
     error = None
 
     if codigo:
         try:
-            radio = Radio.objects.get(
-                codigo_interno__iexact=codigo
-            )
+            radio = Radio.objects.get(codigo_interno__iexact=codigo)
 
             movimientos = (
                 radio.movimientos_kardex
@@ -270,31 +311,31 @@ def trazabilidad(request):
                 .order_by("-fecha")
             )
 
-            ordenes = (
-                OrdenTrabajo.objects
-                .filter(radio=radio)
-                .order_by("-fecha_inicio")
-            )
+            ordenes = OrdenTrabajo.objects.filter(radio=radio)
+
+            ordenes_abiertas = ordenes.filter(
+                estado=OrdenTrabajo.ESTADO_INICIADA
+            ).order_by("-fecha_inicio")
+
+            ordenes_cerradas = ordenes.filter(
+                estado=OrdenTrabajo.ESTADO_CERRADA
+            ).order_by("-fecha_terminado")
 
         except Radio.DoesNotExist:
-            error = (
-                f"No se encontró ningún radio con el "
-                f"código {codigo}."
-            )
+            error = f"No se encontró ningún radio con el código {codigo}."
 
     contexto = {
         "codigo": codigo,
         "radio": radio,
         "movimientos": movimientos,
-        "ordenes": ordenes,
+        "ordenes_abiertas": ordenes_abiertas,
+        "ordenes_cerradas": ordenes_cerradas,
         "error": error,
     }
 
-    return render(
-        request,
-        "core/trazabilidad.html",
-        contexto,
-    )
+    return render(request, "core/trazabilidad.html", contexto)
+
+
 
 @login_required(login_url="login")
 def registrar_constatacion(request, identificador_qr):
@@ -309,11 +350,39 @@ def registrar_constatacion(request, identificador_qr):
         if formulario.is_valid():
             ubicacion = formulario.cleaned_data["ubicacion"]
             responsable = formulario.cleaned_data["responsable"]
+            condicion_fisica = formulario.cleaned_data["condicion_fisica"]
             descripcion = formulario.cleaned_data["descripcion"]
+
+            # Evitar que se registre dos veces la misma constatación
+            # del mismo equipo dentro de un intervalo de 30 segundos.
+            fecha_limite = timezone.now() - timezone.timedelta(seconds=30)
+
+            duplicado = MovimientoKardex.objects.filter(
+                radio=radio,
+                tipo=MovimientoKardex.Tipo.CONSTATACION,
+                ubicacion=ubicacion,
+                responsable=responsable,
+                condicion_fisica=condicion_fisica,
+                descripcion=(
+                    descripcion
+                    or "Constatación física del equipo."
+                ),
+                registrado_por=request.user,
+                fecha__gte=fecha_limite,
+            ).exists()
+
+            if duplicado:
+                messages.warning(
+                    request,
+                    "Esta constatación ya fue registrada recientemente. "
+                    "No se creó un registro duplicado."
+                )
+                return redirect("lista_constataciones")
 
             with transaction.atomic():
                 radio.ubicacion = ubicacion
                 radio.responsable = responsable
+
                 radio.save(
                     update_fields=["ubicacion", "responsable"]
                 )
@@ -327,18 +396,17 @@ def registrar_constatacion(request, identificador_qr):
                     ),
                     ubicacion=ubicacion,
                     responsable=responsable,
+                    condicion_fisica=condicion_fisica,
                     registrado_por=request.user,
                 )
 
             messages.success(
                 request,
-                "Constatación física registrada correctamente.",
+                "Constatación física registrada correctamente."
             )
 
-            return redirect(
-                "detalle_radio",
-                identificador_qr=radio.identificador_qr,
-            )
+            return redirect("lista_constataciones")
+
     else:
         formulario = ConstatacionForm(
             initial={
@@ -356,12 +424,138 @@ def registrar_constatacion(request, identificador_qr):
         },
     )
 
+
+
+@login_required(login_url="login")
+def lista_constataciones(request):
+
+    # Obtener las constataciones registradas.
+    constataciones = MovimientoKardex.objects.filter(
+        tipo=MovimientoKardex.Tipo.CONSTATACION
+    ).select_related(
+        "radio", "registrado_por"
+    )
+
+    codigo = request.GET.get("codigo", "").strip()
+    desde = request.GET.get("desde", "").strip()
+    hasta = request.GET.get("hasta", "").strip()
+
+    # Aplicar filtros.
+    if codigo:
+        constataciones = constataciones.filter(
+            radio__codigo_interno__icontains=codigo
+        )
+
+    if desde:
+        constataciones = constataciones.filter(
+            fecha__date__gte=desde
+        )
+
+    if hasta:
+        constataciones = constataciones.filter(
+            fecha__date__lte=hasta
+        )
+
+    # Obtener únicamente la última constatación de cada radio.
+    ultima_por_equipo = constataciones.filter(
+        radio_id=OuterRef("radio_id")
+    ).order_by(
+        "-fecha", "-id"
+    )
+
+    constataciones = constataciones.filter(
+        pk__in=Subquery(
+            ultima_por_equipo.values("pk")[:1]
+        )
+    ).order_by("-fecha", "-id")
+
+    # Resumen general del inventario.
+    total_equipos = Radio.objects.count()
+
+    # Contar cada radio una sola vez.
+    equipos_constatados = (
+        MovimientoKardex.objects.filter(
+            tipo=MovimientoKardex.Tipo.CONSTATACION
+        )
+        .values("radio_id")
+        .distinct()
+        .count()
+    )
+
+    equipos_pendientes = max(
+        total_equipos - equipos_constatados,
+        0
+    )
+
+    porcentaje_avance = (
+        round((equipos_constatados / total_equipos) * 100, 1)
+        if total_equipos > 0 else 0
+    )
+
+    return render(
+        request,
+        "core/lista_constataciones.html",
+        {
+            "constataciones": constataciones,
+            "codigo": codigo,
+            "fecha_desde": desde,
+            "fecha_hasta": hasta,
+            "total_constataciones": constataciones.count(),
+
+            "total_equipos": total_equipos,
+            "equipos_constatados": equipos_constatados,
+            "equipos_pendientes": equipos_pendientes,
+            "porcentaje_avance": porcentaje_avance,
+        }
+    )
+
+
+@login_required(login_url="login")
+def seleccionar_radio_orden(request):
+    buscar = request.GET.get("buscar", "").strip()
+
+    radios = Radio.objects.all().order_by("codigo_interno")
+
+    if buscar:
+        radios = radios.filter(
+            Q(codigo_interno__icontains=buscar)
+            | Q(numero_serie__icontains=buscar)
+            | Q(marca__icontains=buscar)
+            | Q(modelo__icontains=buscar)
+        )
+
+    contexto = {
+        "radios": radios,
+        "buscar": buscar,
+    }
+
+    return render(
+        request,
+        "core/seleccionar_radio_orden.html",
+        contexto,
+    )
+
+
 @login_required(login_url="login")
 def iniciar_orden(request, identificador_qr):
     radio = get_object_or_404(
         Radio,
         identificador_qr=identificador_qr,
     )
+
+    # Evitar que un radio tenga dos órdenes abiertas.
+    tiene_orden_activa = OrdenTrabajo.objects.filter(
+        radio=radio,
+        estado=OrdenTrabajo.ESTADO_INICIADA,
+    ).exists()
+
+    if tiene_orden_activa:
+        messages.warning(
+            request,
+            f"El radio {radio.codigo_interno} ya tiene una orden de trabajo en proceso. "
+            "Debe cerrarse antes de iniciar otra.",
+        )
+        return redirect("lista_ordenes")
 
     if request.method != "POST":
         formulario = OrdenTrabajoForm(
@@ -395,6 +589,19 @@ def iniciar_orden(request, identificador_qr):
             )
         else:
             with transaction.atomic():
+                # Segunda comprobación antes de guardar.
+                tiene_orden_activa = OrdenTrabajo.objects.filter(
+                    radio=radio,
+                    estado=OrdenTrabajo.ESTADO_INICIADA,
+                ).exists()
+
+                if tiene_orden_activa:
+                    messages.warning(
+                        request,
+                        "Este radio ya tiene una orden de trabajo en proceso.",
+                    )
+                    return redirect("lista_ordenes")
+
                 orden = formulario.save(commit=False)
                 orden.radio = radio
                 orden.codigo_radio = radio.codigo_interno
@@ -420,9 +627,7 @@ def iniciar_orden(request, identificador_qr):
                 "La orden de trabajo se registró correctamente.",
             )
 
-            return redirect(
-                "trazabilidad"
-            )
+            return redirect("lista_ordenes")
 
     return render(
         request,
@@ -432,6 +637,7 @@ def iniciar_orden(request, identificador_qr):
             "formulario": formulario,
         },
     )
+
 
 @login_required(login_url="login")
 def cerrar_orden(request, orden_id):
@@ -483,3 +689,282 @@ def cerrar_orden(request, orden_id):
         )
 
     return redirect("trazabilidad")
+
+
+
+@login_required(login_url="login")
+def lista_ordenes(request):
+    ahora = timezone.now()
+
+    ordenes = (
+        OrdenTrabajo.objects
+        .select_related("radio")
+        .order_by("-fecha_inicio")
+    )
+
+    # Indicadores del módulo.
+    total_ordenes = ordenes.count()
+
+    ordenes_en_proceso = ordenes.filter(
+        estado=OrdenTrabajo.ESTADO_INICIADA
+    ).count()
+
+    ordenes_finalizadas = ordenes.filter(
+        estado=OrdenTrabajo.ESTADO_CERRADA
+    ).count()
+
+    ordenes_vencidas = ordenes.filter(
+        estado=OrdenTrabajo.ESTADO_INICIADA,
+        fecha_limite__lt=ahora,
+    ).count()
+
+    contexto = {
+        "ordenes": ordenes,
+        "total_ordenes": total_ordenes,
+        "ordenes_en_proceso": ordenes_en_proceso,
+        "ordenes_finalizadas": ordenes_finalizadas,
+        "ordenes_vencidas": ordenes_vencidas,
+    }
+
+    return render(
+        request,
+        "core/lista_ordenes.html",
+        contexto,
+    )
+
+@login_required(login_url="login")
+def mantenimiento(request):
+    if request.method == "POST":
+        form = MantenimientoForm(request.POST)
+
+        if form.is_valid():
+            radio = form.cleaned_data["radio"]
+
+            # No permitir mantenimiento a equipos dados de baja
+            # o que todavía están en poder de terceros.
+            if radio.estado in [
+                Radio.Estado.BAJA,
+                Radio.Estado.EN_TERCEROS,
+                Radio.Estado.MANTENIMIENTO,
+            ]:
+                messages.error(
+                    request,
+                    "No se puede registrar el mantenimiento: "
+                    "el estado actual del equipo no lo permite."
+                )
+                return redirect("mantenimiento")
+
+            with transaction.atomic():
+                # Guardar el estado que tenía el radio antes
+                # de entrar en mantenimiento.
+                nuevo_mantenimiento = form.save(commit=False)
+                nuevo_mantenimiento.estado_radio_anterior = radio.estado
+                nuevo_mantenimiento.estado = Mantenimiento.EN_PROCESO
+                nuevo_mantenimiento.save()
+
+                # Cambiar el estado del equipo en el inventario.
+                radio.estado = Radio.Estado.MANTENIMIENTO
+                radio.save(update_fields=["estado"])
+
+                # Registrar el movimiento en el Kardex.
+                MovimientoKardex.objects.create(
+                    radio=radio,
+                    tipo=MovimientoKardex.Tipo.MANTENIMIENTO,
+                    descripcion=(
+                        f"Inicio de mantenimiento "
+                        f"{nuevo_mantenimiento.get_tipo_intervencion_display()}. "
+                        f"{nuevo_mantenimiento.descripcion}"
+                    ),
+                    ubicacion=radio.ubicacion,
+                    responsable=radio.responsable or request.user.username,
+                    registrado_por=request.user,
+                )
+
+            messages.success(
+                request,
+                f"El mantenimiento del equipo "
+                f"{radio.codigo_interno} se registró correctamente. "
+                f"El equipo ahora está en mantenimiento."
+            )
+            return redirect("mantenimiento")
+
+    else:
+        form = MantenimientoForm()
+
+    mantenimientos = (
+        Mantenimiento.objects
+        .select_related("radio")
+        .order_by("-fecha_registro")
+    )
+
+    mantenimientos_activos = mantenimientos.exclude(
+        estado=Mantenimiento.FINALIZADO
+    ).filter(anulado=False).count()
+
+    mantenimientos_vencidos = sum(
+        1 for item in mantenimientos if item.vencido
+    )
+
+    contexto = {
+        "form": form,
+        "mantenimientos": mantenimientos,
+        "mantenimientos_activos": mantenimientos_activos,
+        "mantenimientos_vencidos": mantenimientos_vencidos,
+    }
+
+    return render(request, "core/mantenimiento.html", contexto)
+
+
+@login_required(login_url="login")
+def finalizar_mantenimiento(request, mantenimiento_id):
+    mantenimiento = get_object_or_404(
+        Mantenimiento.objects.select_related("radio"),
+        id=mantenimiento_id,
+        anulado=False
+    )
+
+    if request.method != "POST":
+        return redirect("mantenimiento")
+
+    if mantenimiento.estado != Mantenimiento.EN_PROCESO:
+        messages.error(
+            request,
+            "Este mantenimiento no se encuentra en proceso."
+        )
+        return redirect("mantenimiento")
+
+    trabajo = request.POST.get("trabajo_realizado", "").strip()
+
+    if not trabajo:
+        messages.error(
+            request,
+            "Debes describir el trabajo realizado antes de finalizar."
+        )
+        return redirect("mantenimiento")
+
+    radio = mantenimiento.radio
+
+    # Evitar finalizar sin conocer el estado anterior del equipo.
+    if not mantenimiento.estado_radio_anterior:
+        messages.error(
+            request,
+            "No se puede restaurar el estado del equipo porque "
+            "no se registró su estado anterior. "
+            "Debes revisarlo antes de finalizar."
+        )
+        return redirect("mantenimiento")
+
+    with transaction.atomic():
+
+        # Finalizar el mantenimiento.
+        mantenimiento.estado = Mantenimiento.FINALIZADO
+        mantenimiento.fecha_finalizacion = timezone.now()
+        mantenimiento.trabajo_realizado = trabajo
+        mantenimiento.finalizado_por = request.user
+        mantenimiento.resultado = "OPERATIVO"
+        mantenimiento.save()
+
+        # Restaurar el estado que tenía el radio anteriormente.
+        if radio.estado == Radio.Estado.MANTENIMIENTO:
+            radio.estado = mantenimiento.estado_radio_anterior
+            radio.save(update_fields=["estado"])
+
+        # Seleccionar el tipo de movimiento para el Kardex.
+        if mantenimiento.tipo_intervencion == Mantenimiento.CORRECTIVO:
+            tipo_movimiento = MovimientoKardex.Tipo.REPARACION
+        else:
+            tipo_movimiento = MovimientoKardex.Tipo.MANTENIMIENTO
+
+        # Registrar la finalización en el Kardex.
+        MovimientoKardex.objects.create(
+            radio=radio,
+            tipo=tipo_movimiento,
+            descripcion=(
+                f"Finalización de "
+                f"{mantenimiento.get_tipo_intervencion_display()}. "
+                f"Trabajo realizado: {trabajo}"
+            ),
+            ubicacion=radio.ubicacion,
+            responsable=radio.responsable or request.user.username,
+            registrado_por=request.user,
+        )
+
+    messages.success(
+        request,
+        f"El mantenimiento del equipo {radio.codigo_interno} "
+        f"se finalizó correctamente. Se restauró su estado anterior."
+    )
+
+    return redirect("mantenimiento")
+
+@login_required(login_url="login")
+def anular_mantenimiento(request, mantenimiento_id):
+    mantenimiento = get_object_or_404(
+        Mantenimiento.objects.select_related("radio"),
+        id=mantenimiento_id,
+        anulado=False
+    )
+
+    if request.method != "POST":
+        return redirect("mantenimiento")
+
+    if mantenimiento.estado != Mantenimiento.EN_PROCESO:
+        messages.error(
+            request,
+            "Solo se pueden anular mantenimientos que estén en proceso."
+        )
+        return redirect("mantenimiento")
+
+    motivo = request.POST.get("motivo_anulacion", "").strip()
+
+    if not motivo:
+        messages.error(
+            request,
+            "Debes indicar el motivo de la anulación."
+        )
+        return redirect("mantenimiento")
+
+    radio = mantenimiento.radio
+
+    if not mantenimiento.estado_radio_anterior:
+        messages.error(
+            request,
+            "No se puede anular porque no se registró el estado anterior "
+            "del equipo. Debes revisarlo antes de continuar."
+        )
+        return redirect("mantenimiento")
+
+    with transaction.atomic():
+
+        # Registrar la anulación.
+        mantenimiento.anulado = True
+        mantenimiento.motivo_anulacion = motivo
+        mantenimiento.fecha_anulacion = timezone.now()
+        mantenimiento.anulado_por = request.user
+        mantenimiento.save()
+
+        # Restaurar el estado anterior del radio.
+        if radio.estado == Radio.Estado.MANTENIMIENTO:
+            radio.estado = mantenimiento.estado_radio_anterior
+            radio.save(update_fields=["estado"])
+
+        # Registrar la anulación en el Kardex.
+        MovimientoKardex.objects.create(
+            radio=radio,
+            tipo=MovimientoKardex.Tipo.MANTENIMIENTO,
+            descripcion=(
+                f"Mantenimiento anulado. "
+                f"Motivo: {motivo}"
+            ),
+            ubicacion=radio.ubicacion,
+            responsable=radio.responsable or request.user.username,
+            registrado_por=request.user,
+        )
+
+    messages.success(
+        request,
+        f"El mantenimiento del equipo {radio.codigo_interno} "
+        f"fue anulado correctamente. Se restauró su estado anterior."
+    )
+
+    return redirect("mantenimiento")

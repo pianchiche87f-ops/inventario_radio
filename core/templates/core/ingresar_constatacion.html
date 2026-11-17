@@ -1,0 +1,130 @@
+
+{% extends "core/base.html" %}
+
+{% block title %}Registrar constatación{% endblock %}
+
+{% block page_heading %}Registrar constatación física{% endblock %}
+
+{% block page_description %}
+Identifica el equipo por su código interno o escanea su código QR.
+{% endblock %}
+
+{% block content %}
+
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-8">
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-4">
+
+                <h2 class="h5 fw-bold mb-3">
+                    Identificar equipo
+                </h2>
+
+                <p class="text-secondary">
+                    Escribe el código interno del equipo o utiliza
+                    la cámara para escanear su código QR.
+                </p>
+
+                {% if error %}
+                    <div class="alert alert-danger">
+                        {{ error }}
+                    </div>
+                {% endif %}
+
+                <form method="POST" id="formIdentificar">
+                    {% csrf_token %}
+
+                    <label class="form-label fw-semibold">
+                        Código interno o contenido del QR
+                    </label>
+
+                    <input
+                        type="text"
+                        name="identificador"
+                        id="identificador"
+                        class="form-control form-control-lg mb-3"
+                        placeholder="Ej. RAD-001"
+                        required
+                        autofocus
+                    >
+
+                    <button
+                        type="submit"
+                        class="btn btn-primary w-100"
+                    >
+                        Buscar equipo
+                    </button>
+                </form>
+
+                <hr class="my-4">
+
+                <div class="text-center">
+                    <h3 class="h6 fw-bold mb-3">
+                        Escanear código QR
+                    </h3>
+
+                    <div id="lectorQR"></div>
+
+                    <small class="text-secondary d-block mt-2">
+                        Permite el acceso a la cámara cuando el navegador
+                        lo solicite.
+                    </small>
+                </div>
+
+                <div class="mt-4">
+                    <a
+                        href="{% url 'lista_constataciones' %}"
+                        class="btn btn-outline-secondary w-100"
+                    >
+                        Volver al panel de constataciones
+                    </a>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<script>
+    const lector = new Html5Qrcode("lectorQR");
+
+    function iniciarEscaner() {
+        lector.start(
+            { facingMode: "environment" },
+            {
+                fps: 10,
+                qrbox: {
+                    width: 230,
+                    height: 230
+                }
+            },
+            function(textoEscaneado) {
+                document.getElementById("identificador").value =
+                    textoEscaneado;
+
+                lector.stop().then(function() {
+                    document.getElementById("formIdentificar").submit();
+                });
+            },
+            function(error) {
+                // Se ignoran los errores de lectura de cada fotograma.
+            }
+        ).catch(function(error) {
+            console.error("No se pudo iniciar la cámara:", error);
+        });
+    }
+
+    if (typeof Html5Qrcode !== "undefined") {
+        iniciarEscaner();
+    }
+</script>
+
+{% endblock %}
