@@ -120,6 +120,14 @@
                     ✓ Constatación física
                 </a>
 
+
+
+                <a href="{% url 'lista_salidas_terceros' %}"
+                class="nav-link {% if request.resolver_match.url_name == 'lista_salidas_terceros' or request.resolver_match.url_name == 'registrar_salida_terceros' or request.resolver_match.url_name == 'devolver_salida_terceros' %}active bg-primary{% endif %} text-white rounded">
+                    ↗ Salidas a terceros
+                </a>
+
+
                 <div class="text-uppercase text-white-50 small fw-bold mt-3">
                     Cuenta
                 </div>

@@ -1,15 +1,26 @@
+import csv
+from datetime import timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
+from django.db.models import Q, OuterRef, Subquery
+from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
+from django.utils import timezone
+from django.utils.dateparse import parse_date
+
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill
+
 from inventario.forms import RadioForm, ConstatacionForm
 from inventario.models import Radio, MovimientoKardex
-from .forms import OrdenTrabajoForm, MantenimientoForm
-from .models import OrdenTrabajo, Mantenimiento
 from inventario.qr import generar_qr_radio
-from django.utils import timezone
-from django.db.models import Q, OuterRef, Subquery
+
+from .forms import OrdenTrabajoForm, MantenimientoForm, SalidaTercerosForm
+from .models import OrdenTrabajo, Mantenimiento, SalidaTerceros
+
+
 
 @login_required(login_url="login")
 def dashboard(request):
@@ -84,6 +95,9 @@ def dashboard(request):
         estado=Radio.Estado.EN_TERCEROS
     ).order_by("codigo_interno")
 
+    # Total de equipos pendientes de devolución.
+    total_retornos_pendientes = equipos_en_terceros.count()
+
     # Radios en terceros cuya fecha prevista de devolución ya venció.
     equipos_retorno_vencido = Radio.objects.filter(
         estado=Radio.Estado.EN_TERCEROS,
@@ -105,12 +119,98 @@ def dashboard(request):
         "estado_inventario": estado_inventario,
         "ultimos_movimientos": ultimos_movimientos,
         "equipos_en_terceros": equipos_en_terceros,
+        "total_retornos_pendientes": total_retornos_pendientes,
         "equipos_mantenimiento": equipos_mantenimiento,
         "ultimas_constataciones": ultimas_constataciones,
         "equipos_retorno_vencido": equipos_retorno_vencido,
     }
 
     return render(request, "core/dashboard.html", contexto)
+
+@login_required(login_url="login")
+def exportar_inventario_excel(request):
+
+    radios = Radio.objects.all().order_by("codigo_interno")
+
+    libro = Workbook()
+    hoja = libro.active
+    hoja.title = "Inventario de radios"
+
+    hoja.append(["INVENTARIO GENERAL DE RADIOS"])
+    hoja.append(["Total de equipos registrados", radios.count()])
+    hoja.append([
+        "Fecha de generación",
+        timezone.localtime().strftime("%d/%m/%Y %H:%M")
+    ])
+    hoja.append([])
+
+    encabezados = [
+        "Código interno",
+        "Número de serie",
+        "Marca",
+        "Modelo",
+        "Estado",
+        "Ubicación",
+        "Responsable",
+        "Fecha de registro",
+    ]
+
+    hoja.append(encabezados)
+
+    for celda in hoja[5]:
+        celda.font = Font(bold=True, color="FFFFFF")
+        celda.fill = PatternFill(
+            start_color="1F4E78",
+            end_color="1F4E78",
+            fill_type="solid",
+        )
+
+    for radio in radios:
+        hoja.append([
+            radio.codigo_interno or "",
+            radio.numero_serie or "",
+            radio.marca or "",
+            radio.modelo or "",
+            radio.get_estado_display(),
+            radio.ubicacion or "",
+            radio.responsable or "",
+            (
+                timezone.localtime(radio.fecha_registro).strftime("%d/%m/%Y %H:%M")
+                if radio.fecha_registro else ""
+            ),
+        ])
+
+    anchos = {
+        "A": 20,
+        "B": 22,
+        "C": 20,
+        "D": 20,
+        "E": 22,
+        "F": 28,
+        "G": 28,
+        "H": 25,
+    }
+
+    for columna, ancho in anchos.items():
+        hoja.column_dimensions[columna].width = ancho
+
+    hoja.freeze_panes = "A6"
+    hoja.auto_filter.ref = f"A5:H{hoja.max_row}"
+
+    respuesta = HttpResponse(
+        content_type=(
+            "application/vnd.openxmlformats-officedocument."
+            "spreadsheetml.sheet"
+        )
+    )
+
+    respuesta["Content-Disposition"] = (
+        'attachment; filename="inventario_general_radios.xlsx"'
+    )
+
+    libro.save(respuesta)
+
+    return respuesta
 
 @login_required(login_url="login")
 def lista_radios(request):
@@ -292,49 +392,91 @@ def generador_qr(request):
     )
 
 
+
+
 @login_required(login_url="login")
 def trazabilidad(request):
-    codigo = request.GET.get("codigo", "").strip()
+    busqueda = request.GET.get("buscar", "").strip()
+    tipo = request.GET.get("tipo", "").strip()
+    fecha_desde = request.GET.get("fecha_desde", "").strip()
+    fecha_hasta = request.GET.get("fecha_hasta", "").strip()
+
     radio = None
     movimientos = MovimientoKardex.objects.none()
-    ordenes_abiertas = OrdenTrabajo.objects.none()
-    ordenes_cerradas = OrdenTrabajo.objects.none()
     error = None
 
-    if codigo:
-        try:
-            radio = Radio.objects.get(codigo_interno__iexact=codigo)
+    if busqueda:
+        radio = Radio.objects.filter(
+            Q(codigo_interno__iexact=busqueda) |
+            Q(numero_serie__iexact=busqueda)
+        ).first()
 
+        if radio:
             movimientos = (
                 radio.movimientos_kardex
                 .select_related("registrado_por")
                 .order_by("-fecha")
             )
 
-            ordenes = OrdenTrabajo.objects.filter(radio=radio)
+            # Filtrar por tipo de movimiento.
+            tipos_validos = dict(MovimientoKardex.Tipo.choices)
 
-            ordenes_abiertas = ordenes.filter(
-                estado=OrdenTrabajo.ESTADO_INICIADA
-            ).order_by("-fecha_inicio")
+            if tipo and tipo in tipos_validos:
+                movimientos = movimientos.filter(tipo=tipo)
 
-            ordenes_cerradas = ordenes.filter(
-                estado=OrdenTrabajo.ESTADO_CERRADA
-            ).order_by("-fecha_terminado")
+            # Filtrar por fecha inicial.
+            if fecha_desde:
+                fecha_inicio = parse_date(fecha_desde)
 
-        except Radio.DoesNotExist:
-            error = f"No se encontró ningún radio con el código {codigo}."
+                if fecha_inicio:
+                    movimientos = movimientos.filter(
+                        fecha__date__gte=fecha_inicio
+                    )
+                else:
+                    error = "La fecha inicial no es válida."
+
+            # Filtrar por fecha final.
+            if fecha_hasta:
+                fecha_final = parse_date(fecha_hasta)
+
+                if fecha_final:
+                    movimientos = movimientos.filter(
+                        fecha__date__lte=fecha_final
+                    )
+                else:
+                    error = "La fecha final no es válida."
+
+            # Validar el período seleccionado.
+            if fecha_desde and fecha_hasta:
+                inicio = parse_date(fecha_desde)
+                fin = parse_date(fecha_hasta)
+
+                if inicio and fin and inicio > fin:
+                    error = (
+                        "La fecha inicial no puede ser posterior "
+                        "a la fecha final."
+                    )
+                    movimientos = MovimientoKardex.objects.none()
+
+        else:
+            error = (
+                f"No se encontró ningún radio con el código "
+                f"o número de serie {busqueda}."
+            )
 
     contexto = {
-        "codigo": codigo,
+        "codigo": busqueda,
+        "busqueda": busqueda,
         "radio": radio,
         "movimientos": movimientos,
-        "ordenes_abiertas": ordenes_abiertas,
-        "ordenes_cerradas": ordenes_cerradas,
         "error": error,
+        "tipo_seleccionado": tipo,
+        "tipos_movimiento": MovimientoKardex.Tipo.choices,
+        "fecha_desde": fecha_desde,
+        "fecha_hasta": fecha_hasta,
     }
 
     return render(request, "core/trazabilidad.html", contexto)
-
 
 
 @login_required(login_url="login")
@@ -423,8 +565,6 @@ def registrar_constatacion(request, identificador_qr):
             "formulario": formulario,
         },
     )
-
-
 
 @login_required(login_url="login")
 def lista_constataciones(request):
@@ -968,3 +1108,374 @@ def anular_mantenimiento(request, mantenimiento_id):
     )
 
     return redirect("mantenimiento")
+
+
+@login_required(login_url="login")
+def registrar_salida_terceros(request):
+
+    if request.method == "POST":
+        formulario = SalidaTercerosForm(request.POST)
+
+        if formulario.is_valid():
+            radio_seleccionado = formulario.cleaned_data["radio"]
+
+            with transaction.atomic():
+
+                # Bloquear el registro mientras se procesa la salida.
+                radio = Radio.objects.select_for_update().get(
+                    pk=radio_seleccionado.pk
+                )
+
+                # Verificar nuevamente la disponibilidad.
+                if radio.estado != Radio.Estado.DISPONIBLE:
+                    messages.error(
+                        request,
+                        "Este radio ya no está disponible para entregarlo."
+                    )
+                    return redirect("registrar_salida_terceros")
+
+                # Crear el registro de salida.
+                salida = formulario.save(commit=False)
+                salida.radio = radio
+                salida.registrado_por = request.user
+                salida.estado = SalidaTerceros.Estado.PENDIENTE
+                salida.save()
+
+                # Actualizar el estado del equipo.
+                radio.estado = Radio.Estado.EN_TERCEROS
+                radio.fecha_devolucion_prevista = (
+                    salida.fecha_devolucion_prevista
+                )
+                radio.save(
+                    update_fields=[
+                        "estado",
+                        "fecha_devolucion_prevista",
+                    ]
+                )
+
+                # Registrar el movimiento en el Kardex.
+                MovimientoKardex.objects.create(
+                    radio=radio,
+                    tipo=MovimientoKardex.Tipo.ASIGNACION,
+                    descripcion=(
+                        f"Salida a terceros. "
+                        f"Receptor: {salida.receptor}. "
+                        f"Motivo: {salida.motivo}. "
+                        f"Devolución prevista: "
+                        f"{salida.fecha_devolucion_prevista:%d/%m/%Y}."
+                    ),
+                    ubicacion="En poder de terceros",
+                    responsable=salida.receptor,
+                    registrado_por=request.user,
+                )
+
+            messages.success(
+                request,
+                f"La salida del radio {radio.codigo_interno} "
+                "se registró correctamente."
+            )
+
+            return redirect("lista_salidas_terceros")
+
+    else:
+        formulario = SalidaTercerosForm()
+
+    return render(
+        request,
+        "core/registrar_salida_terceros.html",
+        {
+            "formulario": formulario,
+        },
+    )
+
+@login_required(login_url="login")
+def lista_salidas_terceros(request):
+
+    hoy = timezone.localdate()
+
+    salidas = (
+        SalidaTerceros.objects
+        .select_related("radio", "registrado_por")
+        .all()
+    )
+
+    salidas_pendientes = salidas.filter(
+        estado=SalidaTerceros.Estado.PENDIENTE
+    )
+
+    salidas_vencidas = salidas_pendientes.filter(
+        fecha_devolucion_prevista__lt=hoy
+    )
+
+    salidas_proximas = salidas_pendientes.filter(
+        fecha_devolucion_prevista__gte=hoy,
+        fecha_devolucion_prevista__lte=hoy + timedelta(days=7)
+    )
+
+    contexto = {
+        "salidas": salidas,
+        "total_salidas": salidas.count(),
+        "salidas_pendientes": salidas_pendientes.count(),
+        "salidas_vencidas": salidas_vencidas.count(),
+        "salidas_proximas": salidas_proximas.count(),
+        "hoy": hoy,
+    }
+
+    return render(
+        request,
+        "core/lista_salidas_terceros.html",
+        contexto,
+    )
+
+@login_required(login_url="login")
+def devolver_salida_terceros(request, salida_id):
+
+    if request.method != "POST":
+        return redirect("lista_salidas_terceros")
+
+    with transaction.atomic():
+
+        salida = get_object_or_404(
+            SalidaTerceros.objects.select_for_update(),
+            pk=salida_id,
+        )
+
+        if salida.estado != SalidaTerceros.Estado.PENDIENTE:
+            messages.error(
+                request,
+                "Esta salida ya fue devuelta o anulada."
+            )
+            return redirect("lista_salidas_terceros")
+
+        radio = Radio.objects.select_for_update().get(
+            pk=salida.radio_id
+        )
+
+        # Registrar la devolución.
+        salida.estado = SalidaTerceros.Estado.DEVUELTO
+        salida.fecha_devolucion_real = timezone.now()
+        salida.devuelto_por = request.user
+        salida.save(
+            update_fields=[
+                "estado",
+                "fecha_devolucion_real",
+                "devuelto_por",
+            ]
+        )
+
+        # Restaurar la disponibilidad del radio.
+        radio.estado = Radio.Estado.DISPONIBLE
+        radio.fecha_devolucion_prevista = None
+        radio.save(
+            update_fields=[
+                "estado",
+                "fecha_devolucion_prevista",
+            ]
+        )
+
+        # Registrar la devolución en el Kardex.
+        MovimientoKardex.objects.create(
+            radio=radio,
+            tipo=MovimientoKardex.Tipo.DEVOLUCION,
+            descripcion=(
+                f"Devolución de terceros. "
+                f"Receptor: {salida.receptor}. "
+                f"Fecha de devolución: "
+                f"{salida.fecha_devolucion_real:%d/%m/%Y %H:%M}."
+            ),
+            ubicacion="Inventario",
+            responsable=salida.receptor,
+            registrado_por=request.user,
+        )
+
+    messages.success(
+        request,
+        f"El radio {radio.codigo_interno} fue devuelto correctamente."
+    )
+
+    return redirect("lista_salidas_terceros")
+
+def obtener_datos_trazabilidad_exportacion(request):
+    busqueda = request.GET.get("buscar", "").strip()
+    tipo = request.GET.get("tipo", "").strip()
+    fecha_desde = request.GET.get("fecha_desde", "").strip()
+    fecha_hasta = request.GET.get("fecha_hasta", "").strip()
+
+    if not busqueda:
+        messages.error(request, "Primero debes buscar un radio.")
+        return None, None
+
+    radio = Radio.objects.filter(
+        Q(codigo_interno__iexact=busqueda) |
+        Q(numero_serie__iexact=busqueda)
+    ).first()
+
+    if not radio:
+        messages.error(request, "No se encontró el radio solicitado.")
+        return None, None
+
+    movimientos = (
+        radio.movimientos_kardex
+        .select_related("registrado_por")
+        .order_by("-fecha")
+    )
+
+    tipos_validos = dict(MovimientoKardex.Tipo.choices)
+
+    if tipo and tipo in tipos_validos:
+        movimientos = movimientos.filter(tipo=tipo)
+
+    if fecha_desde:
+        inicio = parse_date(fecha_desde)
+        if not inicio:
+            messages.error(request, "La fecha inicial no es válida.")
+            return None, None
+        movimientos = movimientos.filter(fecha__date__gte=inicio)
+
+    if fecha_hasta:
+        fin = parse_date(fecha_hasta)
+        if not fin:
+            messages.error(request, "La fecha final no es válida.")
+            return None, None
+        movimientos = movimientos.filter(fecha__date__lte=fin)
+
+    if fecha_desde and fecha_hasta:
+        inicio = parse_date(fecha_desde)
+        fin = parse_date(fecha_hasta)
+
+        if inicio and fin and inicio > fin:
+            messages.error(
+                request,
+                "La fecha inicial no puede ser posterior a la fecha final."
+            )
+            return None, None
+
+    return radio, movimientos
+
+
+@login_required(login_url="login")
+def exportar_trazabilidad_csv(request):
+    radio, movimientos = obtener_datos_trazabilidad_exportacion(request)
+
+    if radio is None:
+        return redirect("trazabilidad")
+
+    respuesta = HttpResponse(
+        content_type="text/csv; charset=utf-8-sig"
+    )
+    respuesta["Content-Disposition"] = (
+        f'attachment; filename="trazabilidad_{radio.codigo_interno}.csv"'
+    )
+
+    respuesta.write("\ufeff")
+    escritor = csv.writer(respuesta, delimiter=";")
+
+    escritor.writerow(["TRAZABILIDAD DE RADIOS"])
+    escritor.writerow(["Código interno", radio.codigo_interno])
+    escritor.writerow(["Número de serie", radio.numero_serie or "—"])
+    escritor.writerow(["Marca", radio.marca])
+    escritor.writerow(["Modelo", radio.modelo])
+    escritor.writerow([])
+
+    escritor.writerow([
+        "Fecha y hora",
+        "Evento",
+        "Descripción",
+        "Ubicación",
+        "Responsable",
+        "Condición física",
+        "Registrado por",
+    ])
+
+    for movimiento in movimientos:
+        escritor.writerow([
+            movimiento.fecha.strftime("%d/%m/%Y %H:%M"),
+            movimiento.get_tipo_display(),
+            movimiento.descripcion,
+            movimiento.ubicacion or "—",
+            movimiento.responsable or "—",
+            movimiento.get_condicion_fisica_display() or "—",
+            movimiento.registrado_por or "—",
+        ])
+
+    return respuesta
+
+
+@login_required(login_url="login")
+def exportar_trazabilidad_excel(request):
+    radio, movimientos = obtener_datos_trazabilidad_exportacion(request)
+
+    if radio is None:
+        return redirect("trazabilidad")
+
+    libro = Workbook()
+    hoja = libro.active
+    hoja.title = "Trazabilidad"
+
+    hoja.append(["TRAZABILIDAD DE RADIOS"])
+    hoja.append(["Código interno", radio.codigo_interno])
+    hoja.append(["Número de serie", radio.numero_serie or "—"])
+    hoja.append(["Marca", radio.marca])
+    hoja.append(["Modelo", radio.modelo])
+    hoja.append([])
+
+    encabezados = [
+        "Fecha y hora",
+        "Evento",
+        "Descripción",
+        "Ubicación",
+        "Responsable",
+        "Condición física",
+        "Registrado por",
+    ]
+
+    hoja.append(encabezados)
+
+    for celda in hoja[7]:
+        celda.font = Font(bold=True, color="FFFFFF")
+        celda.fill = PatternFill(
+            start_color="1F4E78",
+            end_color="1F4E78",
+            fill_type="solid",
+        )
+
+    for movimiento in movimientos:
+        hoja.append([
+            movimiento.fecha.strftime("%d/%m/%Y %H:%M"),
+            movimiento.get_tipo_display(),
+            movimiento.descripcion,
+            movimiento.ubicacion or "—",
+            movimiento.responsable or "—",
+            movimiento.get_condicion_fisica_display() or "—",
+            str(movimiento.registrado_por or "—"),
+        ])
+
+    anchos = {
+        "A": 20,
+        "B": 24,
+        "C": 45,
+        "D": 25,
+        "E": 25,
+        "F": 30,
+        "G": 25,
+    }
+
+    for columna, ancho in anchos.items():
+        hoja.column_dimensions[columna].width = ancho
+
+    hoja.freeze_panes = "A8"
+    hoja.auto_filter.ref = f"A7:G{hoja.max_row}"
+
+    respuesta = HttpResponse(
+        content_type=(
+            "application/vnd.openxmlformats-officedocument."
+            "spreadsheetml.sheet"
+        )
+    )
+    respuesta["Content-Disposition"] = (
+        f'attachment; filename="trazabilidad_{radio.codigo_interno}.xlsx"'
+    )
+
+    libro.save(respuesta)
+
+    return respuesta

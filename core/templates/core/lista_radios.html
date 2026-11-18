@@ -1,10 +1,9 @@
 
 {% extends "core/base.html" %}
-
+{% load static %}
 {% block title %}Inventario de radios | Sistema de gestión{% endblock %}
 
 {% block page_heading %}Inventario de activos{% endblock %}
-
 
 {% block page_description %}
     <p class="mb-3">
@@ -39,15 +38,16 @@
     </form>
 {% endblock %}
 
-
 {% block page_actions %}
     <div class="d-flex flex-wrap gap-2 align-items-center">
         <span class="badge text-bg-primary fs-6">
             Total de radios: {{ total_radios }}
         </span>
 
-        <a href="{% url 'registrar_radio' %}" class="btn btn-primary">
-            + Registrar radio
+        <a href="{% url 'registrar_radio' %}?origen=inventario"
+           class="btn btn-primary">
+            <i class="bi bi-plus-circle me-2"></i>
+            Registrar radio
         </a>
     </div>
 {% endblock %}
@@ -148,10 +148,20 @@
                             </a>
                         </td>
                     </tr>
+
                     {% empty %}
                     <tr>
                         <td colspan="8" class="text-center py-5 text-secondary">
-                            <div class="fs-1 mb-2">📻</div>
+
+                            <div class="row justify-content-center mb-3">
+                                <div class="col-6 col-md-3 col-lg-2">
+                                    <img
+                                        src="{% static 'imagen/img1.png' %}"
+                                        alt="Radio"
+                                        class="img-fluid"
+                                    >
+                                </div>
+                            </div>
 
                             <p class="fw-semibold mb-1">
                                 No hay radios registrados
@@ -162,10 +172,6 @@
                                 en este inventario.
                             </p>
 
-                            <a href="{% url 'registrar_radio' %}"
-                               class="btn btn-primary">
-                                Registrar primer radio
-                            </a>
                         </td>
                     </tr>
                     {% endfor %}
@@ -193,5 +199,3 @@
 {% endif %}
 
 {% endblock %}
-
-

@@ -1,8 +1,7 @@
 
 from django import forms
 from django.utils import timezone
-
-from .models import OrdenTrabajo, Mantenimiento
+from .models import OrdenTrabajo, Mantenimiento, SalidaTerceros
 from inventario.models import Radio
 
 
@@ -132,3 +131,108 @@ class MantenimientoForm(forms.ModelForm):
             )
 
         return fecha
+
+
+class SalidaTercerosForm(forms.ModelForm):
+
+    radio = forms.ModelChoiceField(
+        queryset=Radio.objects.filter(
+            estado=Radio.Estado.DISPONIBLE
+        ).order_by("codigo_interno"),
+        label="Radio",
+        empty_label="Selecciona un radio disponible",
+    )
+
+    fecha_salida = forms.DateTimeField(
+        label="Fecha y hora de salida",
+        input_formats=["%Y-%m-%dT%H:%M"],
+        widget=forms.DateTimeInput(
+            format="%Y-%m-%dT%H:%M",
+            attrs={"type": "datetime-local"},
+        ),
+        initial=timezone.localtime,
+    )
+
+    fecha_devolucion_prevista = forms.DateField(
+        label="Fecha prevista de devolución",
+        input_formats=["%Y-%m-%d"],
+        widget=forms.DateInput(
+            format="%Y-%m-%d",
+            attrs={"type": "date"},
+        ),
+    )
+
+    class Meta:
+        model = SalidaTerceros
+        fields = [
+            "radio",
+            "tipo_receptor",
+            "receptor",
+            "identificacion",
+            "contacto",
+            "motivo",
+            "fecha_salida",
+            "fecha_devolucion_prevista",
+            "observaciones",
+        ]
+
+        widgets = {
+            "tipo_receptor": forms.Select(
+                attrs={"class": "form-select"},
+            ),
+            "receptor": forms.TextInput(
+                attrs={
+                    "placeholder": "Nombre de la persona o institución",
+                },
+            ),
+            "identificacion": forms.TextInput(
+                attrs={
+                    "placeholder": "Cédula o RUC",
+                },
+            ),
+            "contacto": forms.TextInput(
+                attrs={
+                    "placeholder": "Teléfono o correo electrónico",
+                },
+            ),
+            "motivo": forms.Textarea(
+                attrs={
+                    "rows": 3,
+                    "placeholder": "Motivo de la salida del equipo...",
+                },
+            ),
+            "observaciones": forms.Textarea(
+                attrs={
+                    "rows": 3,
+                    "placeholder": "Observaciones adicionales...",
+                },
+            ),
+        }
+
+    def clean_radio(self):
+        radio = self.cleaned_data["radio"]
+
+        if radio.estado != Radio.Estado.DISPONIBLE:
+            raise forms.ValidationError(
+                "Este radio no está disponible para una salida a terceros."
+            )
+
+        return radio
+
+    def clean(self):
+        datos = super().clean()
+
+        fecha_salida = datos.get("fecha_salida")
+        fecha_devolucion = datos.get("fecha_devolucion_prevista")
+
+        if fecha_salida and fecha_devolucion:
+            if fecha_devolucion < timezone.localtime(
+                fecha_salida
+            ).date():
+                self.add_error(
+                    "fecha_devolucion_prevista",
+                    "La fecha prevista de devolución no puede ser anterior "
+                    "a la fecha de salida.",
+                )
+
+        return datos

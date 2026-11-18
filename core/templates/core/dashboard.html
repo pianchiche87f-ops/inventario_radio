@@ -10,7 +10,14 @@
 
 {% block page_actions %}
 
+
         <div class="d-flex flex-wrap gap-2">
+
+            <a href="{% url 'exportar_inventario_excel' %}" class="btn btn-success">
+                <i class="bi bi-file-earmark-excel me-2"></i>
+                Descargar inventario
+            </a>
+
             <a href="{% url 'generador_qr' %}" class="btn btn-outline-secondary">
                 <i class="bi bi-qr-code me-2"></i>
                 Identificar QR
@@ -20,6 +27,7 @@
                 <i class="bi bi-plus-lg me-2"></i>
                 Registrar equipo
             </a>
+
         </div>
     {% endblock %}
 
@@ -308,38 +316,50 @@
                             <div class="rounded p-2 bg-info-subtle text-info">
                                 <span aria-hidden="true">↩</span>
                             </div>
+                            
+                        <div class="flex-grow-1">
+                            <div class="small fw-bold">Retornos de equipos</div>
 
-                            <div class="flex-grow-1">
-                                <div class="small fw-bold">Retornos de equipos</div>
-
-                                {% if equipos_retorno_vencido %}
-                                    <small class="text-danger">
-                                        Hay equipos con devolución vencida:
-                                    </small>
-
-                                    <div class="mt-2">
-                                        {% for radio in equipos_retorno_vencido %}
-                                            <div class="mb-2">
-                                                <a
-                                                    href="{% url 'detalle_radio' radio.identificador_qr %}"
-                                                    class="d-block small text-decoration-none fw-semibold"
-                                                >
-                                                    {{ radio.codigo_interno }} — {{ radio.marca }} {{ radio.modelo }}
-                                                </a>
-
-                                                <small class="text-secondary">
-                                                    Fecha límite:
-                                                    {{ radio.fecha_devolucion_prevista|date:"d/m/Y" }}
-                                                </small>
-                                            </div>
-                                        {% endfor %}
-                                    </div>
-                                {% else %}
-                                    <small class="text-secondary">
-                                        No hay retornos vencidos registrados.
-                                    </small>
-                                {% endif %}
+                            <div class="mt-1">
+                                <span class="badge bg-primary">
+                                    {{ total_retornos_pendientes }} pendientes de devolución
+                                </span>
                             </div>
+
+                            {% if equipos_en_terceros %}
+                                <small class="text-secondary d-block mt-2">
+                                    Equipos que están en poder de terceros:
+                                </small>
+
+                                <div class="mt-2">
+                                    {% for radio in equipos_en_terceros %}
+                                        <div class="mb-2">
+                                            <a
+                                                href="{% url 'detalle_radio' radio.identificador_qr %}"
+                                                class="d-block small text-decoration-none fw-semibold"
+                                            >
+                                                {{ radio.codigo_interno }} — {{ radio.marca }} {{ radio.modelo }}
+                                            </a>
+
+                                            <small class="text-secondary">
+                                                Fecha prevista:
+                                                {{ radio.fecha_devolucion_prevista|date:"d/m/Y"|default:"No definida" }}
+                                            </small>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <small class="text-secondary d-block mt-2">
+                                    No hay equipos pendientes de devolución.
+                                </small>
+                            {% endif %}
+
+                            {% if equipos_retorno_vencido %}
+                                <small class="text-danger d-block mt-2">
+                                    Hay equipos con devolución vencida.
+                                </small>
+                            {% endif %}
+                        </div>
 
                             <span class="badge {% if equipos_retorno_vencido %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
                                 {{ equipos_retorno_vencido|length }}

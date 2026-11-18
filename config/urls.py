@@ -28,6 +28,12 @@ urlpatterns = [
     path("", views.dashboard, name="dashboard"),
 
     path(
+        "inventario/exportar/excel/",
+        views.exportar_inventario_excel,
+        name="exportar_inventario_excel",
+    ),
+
+    path(
         "inventario/",
         views.lista_radios,
         name="lista_radios",
@@ -62,8 +68,17 @@ urlpatterns = [
         views.trazabilidad,
         name="trazabilidad",
     ),
+    path(
+        "trazabilidad/exportar/excel/",
+        views.exportar_trazabilidad_excel,
+        name="exportar_trazabilidad_excel",
+    ),
 
-
+    path(
+        "trazabilidad/exportar/csv/",
+        views.exportar_trazabilidad_csv,
+        name="exportar_trazabilidad_csv",
+    ),
 
     path(
         "constataciones/",
@@ -92,6 +107,24 @@ urlpatterns = [
     ),
 
     path("mantenimiento/", views.mantenimiento, name="mantenimiento"),
+
+    path(
+        "salidas-terceros/registrar/",
+        views.registrar_salida_terceros,
+        name="registrar_salida_terceros",
+    ),
+
+    path(
+        "salidas-terceros/",
+        views.lista_salidas_terceros,
+        name="lista_salidas_terceros",
+    ),
+
+    path(
+        "salidas-terceros/<int:salida_id>/devolver/",
+        views.devolver_salida_terceros,
+        name="devolver_salida_terceros",
+    ),
 
     path(
         "mantenimiento/<int:mantenimiento_id>/finalizar/",

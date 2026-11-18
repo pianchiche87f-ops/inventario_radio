@@ -22,6 +22,8 @@ class Radio(models.Model):
     numero_serie = models.CharField(
         max_length=100,
         unique=True,
+        blank=True,
+        default="",
         verbose_name="Número de serie",
     )
 

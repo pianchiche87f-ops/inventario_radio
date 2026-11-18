@@ -1,0 +1,191 @@
+{% extends "core/base.html" %}
+
+{% block title %}Salida a terceros | Inventario de Radios{% endblock %}
+
+{% block page_heading %}Salida de equipos a terceros{% endblock %}
+
+{% block page_description %}
+    Registra la entrega temporal de radios a personas naturales o instituciones.
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+        <h2 class="h5 fw-bold mb-1">Registrar salida de radio</h2>
+        <p class="text-secondary mb-0">
+            Completa los datos del equipo y de la persona o institución receptora.
+        </p>
+    </div>
+
+    <a href="{% url 'lista_salidas_terceros' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-2"></i>Volver
+    </a>
+</div>
+
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    {% endfor %}
+{% endif %}
+
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-primary text-white py-3">
+        <h2 class="h5 mb-0">
+            <i class="bi bi-box-arrow-up-right me-2"></i>Datos de la salida
+        </h2>
+    </div>
+
+    <div class="card-body p-4">
+
+        <form method="post">
+            {% csrf_token %}
+
+            {% if formulario.non_field_errors %}
+                <div class="alert alert-danger">
+                    {{ formulario.non_field_errors }}
+                </div>
+            {% endif %}
+
+            <h6 class="fw-bold text-primary mb-3">
+                <i class="bi bi-broadcast me-2"></i>Información del equipo
+            </h6>
+
+            <div class="row g-3">
+
+                <div class="col-12">
+                    <label for="{{ formulario.radio.id_for_label }}" class="form-label fw-semibold">
+                        Radio disponible
+                    </label>
+                    {{ formulario.radio }}
+                    {% for error in formulario.radio.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+            </div>
+
+            <hr class="my-4">
+
+            <h6 class="fw-bold text-primary mb-3">
+                <i class="bi bi-person-vcard me-2"></i>Información del receptor
+            </h6>
+
+            <div class="row g-3">
+
+                <div class="col-12 col-md-6">
+                    <label for="{{ formulario.tipo_receptor.id_for_label }}" class="form-label fw-semibold">
+                        Tipo de receptor
+                    </label>
+                    {{ formulario.tipo_receptor }}
+                    {% for error in formulario.tipo_receptor.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-12 col-md-6">
+                    <label for="{{ formulario.receptor.id_for_label }}" class="form-label fw-semibold">
+                        Nombre de persona o institución
+                    </label>
+                    {{ formulario.receptor }}
+                    {% for error in formulario.receptor.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-12 col-md-6">
+                    <label for="{{ formulario.identificacion.id_for_label }}" class="form-label fw-semibold">
+                        Identificación / RUC
+                    </label>
+                    {{ formulario.identificacion }}
+                    {% for error in formulario.identificacion.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-12 col-md-6">
+                    <label for="{{ formulario.contacto.id_for_label }}" class="form-label fw-semibold">
+                        Teléfono o contacto
+                    </label>
+                    {{ formulario.contacto }}
+                    {% for error in formulario.contacto.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+            </div>
+
+            <hr class="my-4">
+
+            <h6 class="fw-bold text-primary mb-3">
+                <i class="bi bi-calendar-event me-2"></i>Información de la entrega
+            </h6>
+
+            <div class="row g-3">
+
+                <div class="col-12">
+                    <label for="{{ formulario.motivo.id_for_label }}" class="form-label fw-semibold">
+                        Motivo de la salida
+                    </label>
+                    {{ formulario.motivo }}
+                    {% for error in formulario.motivo.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-12 col-md-6">
+                    <label for="{{ formulario.fecha_salida.id_for_label }}" class="form-label fw-semibold">
+                        Fecha y hora de salida
+                    </label>
+                    {{ formulario.fecha_salida }}
+                    {% for error in formulario.fecha_salida.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-12 col-md-6">
+                    <label for="{{ formulario.fecha_devolucion_prevista.id_for_label }}" class="form-label fw-semibold">
+                        Fecha prevista de devolución
+                    </label>
+                    {{ formulario.fecha_devolucion_prevista }}
+                    {% for error in formulario.fecha_devolucion_prevista.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-12">
+                    <label for="{{ formulario.observaciones.id_for_label }}" class="form-label fw-semibold">
+                        Observaciones adicionales
+                    </label>
+                    {{ formulario.observaciones }}
+                    {% for error in formulario.observaciones.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+            </div>
+
+            <div class="alert alert-warning mt-4 mb-0">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                Al registrar la salida, el radio cambiará automáticamente al estado
+                <strong>EN TERCEROS</strong> y se guardará el movimiento en el Kardex.
+            </div>
+
+            <div class="d-flex justify-content-end gap-2 mt-4">
+                <a href="{% url 'lista_salidas_terceros' %}" class="btn btn-outline-secondary">
+                    Cancelar
+                </a>
+
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save me-2"></i>Registrar salida
+                </button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+{% endblock %}

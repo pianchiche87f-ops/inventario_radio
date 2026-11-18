@@ -2,6 +2,7 @@
 from django.db import models
 from inventario.models import Radio
 from django.conf import settings
+from django.utils import timezone
 
 
 class OrdenTrabajo(models.Model):
@@ -223,4 +224,112 @@ class Mantenimiento(models.Model):
         return (
             f"{self.radio.codigo_interno} - "
             f"{self.get_tipo_intervencion_display()}"
+        )
+
+
+class SalidaTerceros(models.Model):
+
+    class TipoReceptor(models.TextChoices):
+        PERSONA = "persona", "Persona natural"
+        INSTITUCION = "institucion", "Institución / Empresa"
+
+    class Estado(models.TextChoices):
+        PENDIENTE = "pendiente", "Pendiente de devolución"
+        DEVUELTO = "devuelto", "Devuelto"
+        ANULADO = "anulado", "Anulado"
+
+    radio = models.ForeignKey(
+        "inventario.Radio",
+        on_delete=models.PROTECT,
+        related_name="salidas_terceros",
+        verbose_name="Radio",
+    )
+
+    tipo_receptor = models.CharField(
+        max_length=20,
+        choices=TipoReceptor.choices,
+        verbose_name="Tipo de receptor",
+    )
+
+    receptor = models.CharField(
+        max_length=150,
+        verbose_name="Nombre de la persona o institución",
+    )
+
+    identificacion = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name="Cédula o RUC",
+    )
+
+    contacto = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="Teléfono o correo",
+    )
+
+    motivo = models.TextField(
+        verbose_name="Motivo de la salida",
+    )
+
+    fecha_salida = models.DateTimeField(
+        default=timezone.now,
+        verbose_name="Fecha de salida",
+    )
+
+    fecha_devolucion_prevista = models.DateField(
+        verbose_name="Fecha prevista de devolución",
+    )
+
+    fecha_devolucion_real = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha real de devolución",
+    )
+
+    estado = models.CharField(
+        max_length=20,
+        choices=Estado.choices,
+        default=Estado.PENDIENTE,
+        verbose_name="Estado",
+    )
+
+    observaciones = models.TextField(
+        blank=True,
+        verbose_name="Observaciones",
+    )
+
+    registrado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="salidas_terceros_registradas",
+        verbose_name="Registrado por",
+    )
+
+    devuelto_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="devoluciones_terceros_registradas",
+        verbose_name="Devolución registrada por",
+    )
+
+    fecha_registro = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Fecha de registro",
+    )
+
+    class Meta:
+        verbose_name = "Salida a terceros"
+        verbose_name_plural = "Salidas a terceros"
+        ordering = ["-fecha_salida"]
+
+    def __str__(self):
+        return (
+            f"{self.radio.codigo_interno} - "
+            f"{self.receptor} - "
+            f"{self.get_estado_display()}"
         )
